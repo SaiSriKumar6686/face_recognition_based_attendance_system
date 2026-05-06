@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block page_title %}Overview — {{ today.strftime('%b %d, %Y') }}{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="glass-card stat-card">
+        <span class="stat-label">Total Enrolled</span>
+        <span class="stat-value">{{ total_students }}</span>
+    </div>
+    <div class="glass-card stat-card">
+        <span class="stat-label">Unique Present Today</span>
+        <span class="stat-value">{{ unique_today }}</span>
+    </div>
+    <div class="glass-card stat-card">
+        <span class="stat-label">Total Detections</span>
+        <span class="stat-value">{{ records|length }}</span>
+    </div>
+    <div class="glass-card stat-card">
+        <span class="stat-label">System Status</span>
+        <span class="stat-value" style="color: var(--success); font-size: 2rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="ph ph-check-circle"></i> Online
+        </span>
+    </div>
+</div>
+
+<h2 style="margin-top: 2rem; margin-bottom: 1rem; font-size: 1.25rem;">Recent Detections</h2>
+
+{% if records %}
+<div class="table-container">
+    <table id="attendanceTable">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Student ID</th>
+                <th>Confidence</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in records %}
+            <tr>
+                <td style="color: var(--text-secondary);">{{ r.timestamp.strftime('%H:%M:%S') }}</td>
+                <td style="font-weight: 500;">{{ r.student_id }}</td>
+                <td>
+                    {% if r.confidence > 0.45 %}
+                        <span style="color: var(--success);">{{ "%.1f"|format(r.confidence * 100) }}%</span>
+                    {% elif r.confidence > 0.20 %}
+                        <span style="color: var(--warning);">{{ "%.1f"|format(r.confidence * 100) }}%</span>
+                    {% else %}
+                        <span style="color: var(--danger);">{{ "%.1f"|format(r.confidence * 100) }}%</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if r.confidence > 0.45 %}
+                        <span class="badge badge-success">Verified</span>
+                    {% else %}
+                        <span class="badge badge-warning">Review</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="glass-card empty-state">
+    <i class="ph ph-camera-slash" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.5;"></i>
+    <h3>No detections yet</h3>
+    <p>Use the <a href="{{ url_for('demo') }}" style="color: var(--accent-primary);">Live Demo</a> to upload and analyze images.</p>
+</div>
+{% endif %}
+
+{% endblock %}

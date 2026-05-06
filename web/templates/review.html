@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block page_title %}Review Queue{% endblock %}
+
+{% block content %}
+<p style="color: var(--text-secondary); margin-bottom: 2rem;">
+    These low-confidence detections require manual verification to improve the system's continual learning model.
+</p>
+
+{% if pending %}
+<div class="review-grid">
+    {% for p in pending %}
+    <div class="glass-card review-card">
+        <div class="review-img-wrap">
+            <!-- Convert absolute path to something the browser can render, or ideally serve it via a Flask route. 
+                 Since the backend stores absolute paths, we'll need a way to serve them.
+                 For this demo, we assume the path is served or we'll just show a placeholder if it breaks. -->
+            <img src="/static/placeholder_face.jpg" alt="Face Crop" title="{{ p.crop_path }}">
+        </div>
+        <div>
+            <h3 style="font-size: 1.125rem;">Candidate: {{ p.student_id }}</h3>
+            <p style="color: var(--text-muted); font-size: 0.875rem;">{{ p.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+        </div>
+        <div class="review-actions">
+            <form action="{{ url_for('confirm_crop', crop_id=p.id) }}" method="POST" style="flex: 1;">
+                <button type="submit" class="btn btn-success" style="width: 100%;">
+                    <i class="ph ph-check" style="margin-right: 0.25rem;"></i> Confirm
+                </button>
+            </form>
+            <form action="{{ url_for('reject_crop', crop_id=p.id) }}" method="POST" style="flex: 1;">
+                <button type="submit" class="btn btn-danger" style="width: 100%;">
+                    <i class="ph ph-x" style="margin-right: 0.25rem;"></i> Reject
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="glass-card empty-state">
+    <i class="ph ph-check-circle" style="color: var(--success); opacity: 1;"></i>
+    <h3>All caught up!</h3>
+    <p>There are no crops waiting for manual review.</p>
+</div>
+{% endif %}
+
+{% endblock %}

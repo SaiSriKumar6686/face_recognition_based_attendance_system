@@ -1,0 +1,79 @@
+
+# ─────────────────────────────────────────────
+# Face Attendance System — Master Config
+# ─────────────────────────────────────────────
+
+project:
+  name: face_attendance_system
+  version: 0.1.0
+
+paths:
+  seed_images:      data/seed_images        # one subfolder per student_id
+  synthetic:        data/synthetic          # generated augmented images
+  cctv_crops_raw:   data/cctv_crops/raw     # unverified CCTV face crops
+  cctv_crops_verified: data/cctv_crops/verified
+  embeddings:       data/embeddings         # FAISS index + SQLite DB
+  logs:             data/logs
+  pretrained:       models/pretrained       # AdaFace IR-18 weights
+  checkpoints:      models/checkpoints
+  onnx:             models/onnx
+
+augmentation:
+  target_samples_per_identity: 300          # total synthetic samples to generate
+  seed_ratio: 0.30                          # fraction kept as seed in training batch
+  synthetic_ratio: 0.70
+  branches:
+    geometric:
+      rotation_limit: 30
+      flip: true
+      crop_scale: [0.80, 1.00]
+    photometric:
+      brightness_limit: 0.40
+      contrast_limit: 0.30
+      saturation_limit: 0.30
+      grayscale_prob: 0.15
+    cctv_sim:
+      downscale_min: 20
+      downscale_max: 28
+      blur_kernel_range: [3, 7]
+      jpeg_quality_range: [30, 60]
+      gaussian_noise_sigma: [5, 20]
+    occlusion:
+      min_patch_fraction: 0.10
+      max_patch_fraction: 0.40
+      mask_prob: 0.20
+      glasses_prob: 0.20
+
+training:
+  backbone: IR_18
+  embedding_dim: 512
+  loss: adaface
+  epochs: 30
+  batch_size: 64
+  learning_rate: 0.001
+  warmup_epochs: 5
+  cosface_warmup: true
+  device: cuda                              # fallback: cpu
+
+inference:
+  high_confidence_threshold: 0.45
+  soft_threshold: 0.20
+  face_detector: retinaface
+  align: true
+  input_size: [112, 112]
+
+enrollment:
+  min_verified_samples: 5                   # before first real fine-tune
+  ring_buffer_size: 50                      # per identity
+
+continual_learning:
+  retrain_trigger_n: 20                     # new verified samples to trigger retrain
+  scheduled_retrain: "02:00"               # nightly time HH:MM
+  ewc_lambda: 5000
+  replay_ratio: 0.30                        # synthetic replay fraction in fine-tune batch
+  fine_tune_layers: 2                       # last N layers only
+  shadow_eval_before_promote: true
+
+database:
+  path: data/embeddings/attendance.db
+  faiss_index: data/embeddings/faiss.index

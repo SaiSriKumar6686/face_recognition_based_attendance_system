@@ -1,0 +1,23 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+venv/
+env/
+
+# Data and Models
+data/demo_uploads/
+data/cctv_crops/
+data/cctv_crops_raw/
+data/embeddings/attendance.db
+data/embeddings/*.index
+data/embeddings/*.npy
+models/
+
+# Ignore insightface downloaded models if they are in the folder
+.insightface/
+
+# IDE
+.vscode/
+.idea/

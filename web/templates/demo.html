@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block page_title %}Live Demo{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; min-height: 70vh;">
+
+    <!-- Left Panel: Upload -->
+    <div class="glass-card" style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <h2 style="font-size: 1.25rem; font-weight: 600;">
+            <i class="ph ph-upload-simple" style="margin-right: 0.5rem;"></i>
+            Upload Image
+        </h2>
+        <p style="color: var(--text-secondary); font-size: 0.875rem;">
+            Upload a classroom photo or individual headshot. The system will detect all faces,
+            extract embeddings with InsightFace (ResNet-50), and match each against the enrolled gallery
+            of <strong>{{ total_students }}</strong> students.
+        </p>
+
+        <div id="dropZone" style="border: 2px dashed var(--border-highlight); border-radius: var(--radius-md);
+             padding: 3rem 2rem; text-align: center; cursor: pointer; transition: var(--transition);
+             background: rgba(0,0,0,0.15);">
+            <i class="ph ph-image" style="font-size: 3rem; color: var(--text-muted); display: block; margin-bottom: 1rem;"></i>
+            <p style="color: var(--text-secondary); margin-bottom: 0.5rem;">Drag & drop an image here</p>
+            <p style="color: var(--text-muted); font-size: 0.8rem;">or click to browse</p>
+            <input type="file" id="fileInput" accept="image/*" style="display: none;">
+        </div>
+
+        <div id="previewContainer" style="display: none;">
+            <img id="previewImg" src="" alt="Preview"
+                 style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+        </div>
+
+        <button id="analyzeBtn" class="btn btn-primary" style="width: 100%; padding: 1rem;" disabled>
+            <i class="ph ph-scan" style="margin-right: 0.5rem;"></i>
+            <span id="btnText">Analyze Faces</span>
+        </button>
+
+        <!-- Pipeline Info -->
+        <div style="background: rgba(0,0,0,0.2); border-radius: var(--radius-sm); padding: 1rem;">
+            <p style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;">Pipeline</p>
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; font-size: 0.8rem; color: var(--text-secondary);">
+                <span style="background: var(--accent-gradient); color: white; padding: 0.2rem 0.6rem; border-radius: 9999px; font-size: 0.7rem;">RetinaFace</span>
+                <span>→</span>
+                <span style="background: var(--accent-gradient); color: white; padding: 0.2rem 0.6rem; border-radius: 9999px; font-size: 0.7rem;">CLAHE + Denoise</span>
+                <span>→</span>
+                <span style="background: var(--accent-gradient); color: white; padding: 0.2rem 0.6rem; border-radius: 9999px; font-size: 0.7rem;">ResNet-50 (512d)</span>
+                <span>→</span>
+                <span style="background: var(--accent-gradient); color: white; padding: 0.2rem 0.6rem; border-radius: 9999px; font-size: 0.7rem;">FAISS Match</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Panel: Results -->
+    <div class="glass-card" style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <h2 style="font-size: 1.25rem; font-weight: 600;">
+            <i class="ph ph-chart-bar" style="margin-right: 0.5rem;"></i>
+            Recognition Results
+        </h2>
+
+        <div id="resultPlaceholder" style="flex: 1; display: flex; align-items: center; justify-content: center;">
+            <div style="text-align: center; color: var(--text-muted);">
+                <i class="ph ph-scan" style="font-size: 4rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
+                <p>Upload an image to see recognition results</p>
+            </div>
+        </div>
+
+        <div id="resultContent" style="display: none; flex: 1; overflow-y: auto;">
+            <!-- Annotated Image -->
+            <div style="margin-bottom: 1.5rem;">
+                <img id="annotatedImg" src="" alt="Annotated"
+                     style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+            </div>
+
+            <!-- Stats Bar -->
+            <div id="statsBar" class="stats-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+            </div>
+
+            <!-- Per-face results -->
+            <div id="faceResults">
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const previewContainer = document.getElementById('previewContainer');
+const previewImg = document.getElementById('previewImg');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const btnText = document.getElementById('btnText');
+const resultPlaceholder = document.getElementById('resultPlaceholder');
+const resultContent = document.getElementById('resultContent');
+const annotatedImg = document.getElementById('annotatedImg');
+const statsBar = document.getElementById('statsBar');
+const faceResults = document.getElementById('faceResults');
+
+let selectedFile = null;
+
+// Drop zone interactions
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = '#3b82f6';
+    dropZone.style.background = 'rgba(59, 130, 246, 0.1)';
+});
+dropZone.addEventListener('dragleave', () => {
+    dropZone.style.borderColor = '';
+    dropZone.style.background = '';
+});
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = '';
+    dropZone.style.background = '';
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length) handleFile(e.target.files[0]);
+});
+
+function handleFile(file) {
+    selectedFile = file;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        previewImg.src = e.target.result;
+        previewContainer.style.display = 'block';
+        dropZone.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+    analyzeBtn.disabled = false;
+}
+
+analyzeBtn.addEventListener('click', async () => {
+    if (!selectedFile) return;
+
+    analyzeBtn.disabled = true;
+    btnText.textContent = 'Processing...';
+
+    const formData = new FormData();
+    formData.append('image', selectedFile);
+
+    try {
+        const resp = await fetch('/demo/analyze', { method: 'POST', body: formData });
+        const data = await resp.json();
+
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+
+        // Show results
+        resultPlaceholder.style.display = 'none';
+        resultContent.style.display = 'block';
+
+        annotatedImg.src = data.annotated_image;
+
+        // Stats
+        const high = data.results.filter(r => r.decision === 'high').length;
+        const soft = data.results.filter(r => r.decision === 'soft').length;
+        const unk  = data.results.filter(r => r.decision === 'unknown').length;
+
+        statsBar.innerHTML = `
+            <div style="text-align: center; padding: 0.75rem; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); border-radius: var(--radius-sm);">
+                <div style="font-size: 1.5rem; font-weight: 700; color: var(--success);">${high}</div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">Identified</div>
+            </div>
+            <div style="text-align: center; padding: 0.75rem; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: var(--radius-sm);">
+                <div style="font-size: 1.5rem; font-weight: 700; color: var(--warning);">${soft}</div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">Needs Review</div>
+            </div>
+            <div style="text-align: center; padding: 0.75rem; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: var(--radius-sm);">
+                <div style="font-size: 1.5rem; font-weight: 700; color: var(--danger);">${unk}</div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">Unknown</div>
+            </div>
+        `;
+
+        // Per-face details
+        let html = `<div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+            ${data.faces_detected} face(s) detected in ${data.processing_time_ms} ms
+        </div>`;
+
+        data.results.sort((a, b) => b.confidence - a.confidence);
+        for (const r of data.results) {
+            const color = r.decision === 'high' ? 'var(--success)' :
+                          r.decision === 'soft' ? 'var(--warning)' : 'var(--danger)';
+            const icon = r.decision === 'high' ? 'check-circle' :
+                         r.decision === 'soft' ? 'question' : 'x-circle';
+            const badgeCls = r.decision === 'high' ? 'badge-success' : 'badge-warning';
+
+            html += `
+            <div style="display: flex; align-items: center; gap: 1rem; padding: 0.75rem;
+                 border-bottom: 1px solid var(--border-light);">
+                <i class="ph ph-${icon}" style="font-size: 1.25rem; color: ${color};"></i>
+                <div style="flex: 1;">
+                    <div style="font-weight: 500;">${r.student_id}</div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary);">${r.name}</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-weight: 600; color: ${color};">${r.confidence}%</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted);">${r.decision}</div>
+                </div>
+            </div>`;
+        }
+
+        faceResults.innerHTML = html;
+
+    } catch (err) {
+        alert('Analysis failed: ' + err.message);
+    } finally {
+        analyzeBtn.disabled = false;
+        btnText.textContent = 'Analyze Faces';
+    }
+});
+</script>
+{% endblock %}

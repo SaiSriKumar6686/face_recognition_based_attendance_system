@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Face Attendance System{% endblock %} | Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <!-- Phosphor Icons for premium iconography -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h2>Face Guard AI</h2>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="{{ url_for('demo') }}" class="nav-link {% if request.endpoint == 'demo' %}active{% endif %}">
+                <i class="ph ph-scan" style="font-size: 1.25rem; margin-right: 0.75rem;"></i>
+                Live Demo
+            </a>
+            <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                <i class="ph ph-squares-four" style="font-size: 1.25rem; margin-right: 0.75rem;"></i>
+                Dashboard
+            </a>
+            <a href="{{ url_for('review') }}" class="nav-link {% if request.endpoint == 'review' %}active{% endif %}">
+                <i class="ph ph-user-focus" style="font-size: 1.25rem; margin-right: 0.75rem;"></i>
+                Review Queue
+            </a>
+            <a href="{{ url_for('students') }}" class="nav-link {% if request.endpoint == 'students' %}active{% endif %}">
+                <i class="ph ph-users" style="font-size: 1.25rem; margin-right: 0.75rem;"></i>
+                Students
+            </a>
+        </nav>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+        <header class="page-header animate-fade-in">
+            <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+            {% block header_actions %}{% endblock %}
+        </header>
+
+        <section class="content-body animate-fade-in" style="animation-delay: 0.1s;">
+            {% block content %}{% endblock %}
+        </section>
+    </main>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>
