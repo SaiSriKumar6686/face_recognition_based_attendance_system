@@ -6,16 +6,15 @@ __pycache__/
 venv/
 env/
 
-# Data and Models
+# Testing and Demo data
+testing/
 data/demo_uploads/
 data/cctv_crops/
 data/cctv_crops_raw/
-data/embeddings/attendance.db
-data/embeddings/*.index
-data/embeddings/*.npy
-models/
+data/logs/
 
-# Ignore insightface downloaded models if they are in the folder
+# Models
+models/checkpoints/
 .insightface/
 
 # IDE

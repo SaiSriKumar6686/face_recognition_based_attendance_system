@@ -12202,3 +12202,10 @@
 2026-05-06 10:33:34 | INFO     | src.enrollment.enroll_student:115 —   Student 23C11A05C7 already in DB — updating embedding only.
 2026-05-06 10:33:34 | INFO     | src.inference.matcher:76 — FAISS index saved (63 vectors)
 2026-05-06 10:33:34 | INFO     | src.enrollment.enroll_student:124 — ✓ Enrolled 23C11A05C7 (23C11A05C7) | 1 embedding(s) used.
+2026-05-06 10:36:49 | INFO     | __main__:46 — Initialising database...
+2026-05-06 10:36:49 | INFO     | __main__:49 — Loading recognition model (this may take a few seconds)...
+2026-05-06 10:36:54 | INFO     | src.inference.embedder:84 — Embedder: InsightFace buffalo_l loaded (detection + recognition)
+2026-05-06 10:36:54 | INFO     | __main__:52 — Embedder ready: InsightFaceEmbedder
+2026-05-06 10:36:54 | INFO     | __main__:54 — Loading FAISS index...
+2026-05-06 10:36:54 | INFO     | src.inference.matcher:53 — FAISS index loaded: 63 vectors
+2026-05-06 10:36:54 | INFO     | __main__:57 — Gallery: 63 enrolled embeddings
