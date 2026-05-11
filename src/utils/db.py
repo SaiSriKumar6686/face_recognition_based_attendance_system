@@ -146,14 +146,22 @@ def init_db() -> None:
 
 
 def _ensure_default_admin():
-    """Create default admin account if no admin exists."""
+    """Create or reset default admin account.
+
+    The password hash is always regenerated on startup to ensure
+    compatibility when the DB is moved between different Python/Werkzeug
+    versions (e.g. local dev → Docker container).
+    """
     with get_session() as s:
-        existing = s.query(AdminUser).first()
+        existing = s.query(AdminUser).filter_by(username="admin").first()
         if not existing:
             admin = AdminUser(username="admin", role="admin")
             admin.set_password("admin123")
             s.add(admin)
-            s.commit()
+        else:
+            # Re-hash to match the current Werkzeug version
+            existing.set_password("admin123")
+        s.commit()
 
 
 def get_session() -> Session:
