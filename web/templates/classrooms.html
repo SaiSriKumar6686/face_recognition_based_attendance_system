@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block page_title %}Classrooms{% endblock %}
+{% block header_actions %}
+<button class="btn btn-primary" onclick="document.getElementById('addModal').showModal()">
+    <i class="ph ph-plus" style="margin-right: 0.5rem;"></i> Add Classroom
+</button>
+{% endblock %}
+
+{% block content %}
+{% if classrooms %}
+<div class="table-container">
+    <table>
+        <thead><tr><th>Name</th><th>Camera URL</th><th>Created</th><th>Action</th></tr></thead>
+        <tbody>
+            {% for c in classrooms %}
+            <tr>
+                <td style="font-weight: 500;">{{ c.name }}</td>
+                <td style="color: var(--text-secondary); font-size: 0.875rem;">{{ c.camera_url or '—' }}</td>
+                <td style="color: var(--text-secondary);">{{ c.created_at.strftime('%Y-%m-%d') }}</td>
+                <td>
+                    <form action="{{ url_for('delete_classroom_route', classroom_id=c.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Delete this classroom?');">
+                        <button type="submit" class="btn btn-danger" style="padding: 0.3rem 0.75rem; font-size: 0.8rem;">
+                            <i class="ph ph-trash"></i>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="glass-card empty-state">
+    <i class="ph ph-chalkboard-teacher" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.5;"></i>
+    <h3>No classrooms configured</h3>
+    <p>Add classrooms to organize attendance by location.</p>
+</div>
+{% endif %}
+
+<dialog id="addModal" class="glass-card" style="margin: auto; padding: 2rem; border: 1px solid var(--border-light); background: var(--bg-base); color: white; border-radius: var(--radius-md); max-width: 400px; width: 100%;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h3 style="font-size: 1.25rem; font-weight: 600;">Add Classroom</h3>
+        <button onclick="document.getElementById('addModal').close()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer;"><i class="ph ph-x" style="font-size: 1.5rem;"></i></button>
+    </div>
+    <form action="{{ url_for('add_classroom_route') }}" method="POST">
+        <div class="form-group">
+            <label for="name">Classroom Name</label>
+            <input type="text" id="name" name="name" class="form-control" required placeholder="e.g. Room 101">
+        </div>
+        <div class="form-group">
+            <label for="camera_url">Camera URL (optional)</label>
+            <input type="text" id="camera_url" name="camera_url" class="form-control" placeholder="rtsp://...">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">Add Classroom</button>
+    </form>
+</dialog>
+<style>::backdrop { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }</style>
+{% endblock %}

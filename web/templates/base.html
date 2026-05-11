@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Face Attendance System{% endblock %} | Admin</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <!-- Phosphor Icons for premium iconography -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -14,23 +14,68 @@
     <aside class="sidebar">
         <div class="sidebar-header">
             <h2>Face Guard AI</h2>
+            <span class="sidebar-subtitle">Attendance System</span>
         </div>
         <nav class="sidebar-nav">
-            <a href="{{ url_for('demo') }}" class="nav-link {% if request.endpoint == 'demo' %}active{% endif %}">
-                <i class="ph ph-scan" style="font-size: 1.25rem; margin-right: 0.75rem;"></i>
-                Live Demo
-            </a>
             <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
                 <i class="ph ph-squares-four" style="font-size: 1.25rem; margin-right: 0.75rem;"></i>
                 Dashboard
+            </a>
+            <a href="{{ url_for('attendance') }}" class="nav-link {% if request.endpoint == 'attendance' %}active{% endif %}">
+                <i class="ph ph-calendar-check" style="font-size: 1.25rem; margin-right: 0.75rem;"></i>
+                Attendance
+            </a>
+            <a href="{{ url_for('students') }}" class="nav-link {% if request.endpoint in ('students', 'student_profile') %}active{% endif %}">
+                <i class="ph ph-users" style="font-size: 1.25rem; margin-right: 0.75rem;"></i>
+                Students
+            </a>
+            <a href="{{ url_for('classrooms') }}" class="nav-link {% if request.endpoint == 'classrooms' %}active{% endif %}">
+                <i class="ph ph-chalkboard-teacher" style="font-size: 1.25rem; margin-right: 0.75rem;"></i>
+                Classrooms
             </a>
             <a href="{{ url_for('review') }}" class="nav-link {% if request.endpoint == 'review' %}active{% endif %}">
                 <i class="ph ph-user-focus" style="font-size: 1.25rem; margin-right: 0.75rem;"></i>
                 Review Queue
             </a>
-            <a href="{{ url_for('students') }}" class="nav-link {% if request.endpoint == 'students' %}active{% endif %}">
-                <i class="ph ph-users" style="font-size: 1.25rem; margin-right: 0.75rem;"></i>
-                Students
+
+            <div class="nav-divider"></div>
+            <span class="nav-section-label">Tools</span>
+
+            <a href="{{ url_for('testing') }}" class="nav-link {% if request.endpoint == 'testing' %}active{% endif %}">
+                <i class="ph ph-flask" style="font-size: 1.25rem; margin-right: 0.75rem;"></i>
+                Testing
+            </a>
+            <a href="{{ url_for('live') }}" class="nav-link {% if request.endpoint == 'live' %}active{% endif %}">
+                <i class="ph ph-video-camera" style="font-size: 1.25rem; margin-right: 0.75rem;"></i>
+                Live Feed
+            </a>
+
+            <div class="nav-divider"></div>
+            <span class="nav-section-label">Analytics</span>
+
+            <a href="{{ url_for('metrics') }}" class="nav-link {% if request.endpoint == 'metrics' %}active{% endif %}">
+                <i class="ph ph-chart-line-up" style="font-size: 1.25rem; margin-right: 0.75rem;"></i>
+                Metrics
+            </a>
+            <a href="{{ url_for('benchmarks') }}" class="nav-link {% if request.endpoint == 'benchmarks' %}active{% endif %}">
+                <i class="ph ph-trophy" style="font-size: 1.25rem; margin-right: 0.75rem;"></i>
+                Benchmarks
+            </a>
+            <a href="{{ url_for('health') }}" class="nav-link {% if request.endpoint == 'health' %}active{% endif %}">
+                <i class="ph ph-heartbeat" style="font-size: 1.25rem; margin-right: 0.75rem;"></i>
+                System Health
+            </a>
+            <a href="{{ url_for('audit_log_page') }}" class="nav-link {% if request.endpoint == 'audit_log_page' %}active{% endif %}">
+                <i class="ph ph-scroll" style="font-size: 1.25rem; margin-right: 0.75rem;"></i>
+                Audit Log
+            </a>
+
+            <!-- Spacer + Logout -->
+            <div style="flex: 1;"></div>
+            <div class="nav-divider"></div>
+            <a href="{{ url_for('auth.logout') }}" class="nav-link" style="color: var(--danger);">
+                <i class="ph ph-sign-out" style="font-size: 1.25rem; margin-right: 0.75rem;"></i>
+                Logout
             </a>
         </nav>
     </aside>

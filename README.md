@@ -1,3 +1,12 @@
+---
+title: Face Guard AI
+emoji: 🛡️
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+pinned: false
+---
+
 # 🛡️ Face Guard AI — Real-Time Face Attendance System
 
 Face Guard AI is an advanced, production-ready facial recognition system designed to automate classroom or office attendance via CCTV camera feeds. It features a premium web dashboard for real-time monitoring, an automated enrollment system, and a human-in-the-loop review queue for low-confidence detections.

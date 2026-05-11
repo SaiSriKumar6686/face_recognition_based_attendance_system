@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block page_title %}Testing{% endblock %}
+
+{% block content %}
+<p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+    Upload an image to test face recognition. High-confidence matches are automatically logged to attendance.
+    {% if liveness_enabled %}<br><span style="color: var(--success);"><i class="ph ph-shield-check"></i> Anti-spoofing is active.</span>{% endif %}
+</p>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+    <!-- Upload Area -->
+    <div class="glass-card" id="uploadArea">
+        <h2 class="section-title"><i class="ph ph-upload-simple" style="color: var(--accent-primary);"></i> Upload Image</h2>
+
+        <div id="dropZone" style="border: 2px dashed var(--border-highlight); border-radius: var(--radius-md);
+             padding: 3rem; text-align: center; cursor: pointer; transition: var(--transition);
+             margin-top: 1rem; min-height: 300px; display: flex; flex-direction: column;
+             align-items: center; justify-content: center;"
+             onclick="document.getElementById('fileInput').click()">
+            <i class="ph ph-cloud-arrow-up" style="font-size: 3rem; color: var(--accent-primary); margin-bottom: 1rem;"></i>
+            <p style="font-weight: 500;">Drag & drop or click to select</p>
+            <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.5rem;">Supports JPG, PNG, BMP</p>
+            <img id="preview" style="display: none; max-width: 100%; max-height: 250px; border-radius: var(--radius-sm); margin-top: 1rem; border: 1px solid var(--border-light);">
+        </div>
+        <input type="file" id="fileInput" accept="image/*" style="display: none;" onchange="handleFile(this.files[0])">
+
+        <button id="analyzeBtn" class="btn btn-primary" onclick="analyzeImage()" disabled
+                style="width: 100%; margin-top: 1rem; padding: 0.875rem;">
+            <i class="ph ph-scan" style="margin-right: 0.5rem;"></i>
+            Analyze Face
+        </button>
+    </div>
+
+    <!-- Results -->
+    <div class="glass-card">
+        <h2 class="section-title"><i class="ph ph-identification-card" style="color: var(--warning);"></i> Results</h2>
+
+        <div id="resultArea" style="margin-top: 1rem;">
+            <div style="text-align: center; color: var(--text-muted); padding: 3rem;">
+                <i class="ph ph-magnifying-glass" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
+                <p>Upload and analyze an image to see results</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Annotated Image -->
+<div id="annotatedSection" class="glass-card" style="margin-top: 2rem; display: none;">
+    <h2 class="section-title"><i class="ph ph-image" style="color: var(--success);"></i> Annotated Output</h2>
+    <img id="annotatedImg" style="width: 100%; max-height: 500px; object-fit: contain; border-radius: var(--radius-sm); margin-top: 1rem;">
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedFile = null;
+
+// Drag & drop
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = 'var(--accent-primary)'; });
+dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = 'var(--border-highlight)'; });
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.style.borderColor = 'var(--border-highlight)'; if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+
+function handleFile(file) {
+    if (!file) return;
+    selectedFile = file;
+    const preview = document.getElementById('preview');
+    const reader = new FileReader();
+    reader.onload = e => { preview.src = e.target.result; preview.style.display = 'block'; };
+    reader.readAsDataURL(file);
+    document.getElementById('analyzeBtn').disabled = false;
+}
+
+async function analyzeImage() {
+    if (!selectedFile) return;
+    const btn = document.getElementById('analyzeBtn');
+    const resultArea = document.getElementById('resultArea');
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ph ph-spinner" style="margin-right: 0.5rem; animation: spin 1s linear infinite;"></i> Processing...';
+    resultArea.innerHTML = '<div style="text-align: center; padding: 2rem;"><i class="ph ph-spinner" style="font-size: 2rem; animation: spin 1s linear infinite; color: var(--accent-primary);"></i><p style="margin-top: 1rem; color: var(--text-muted);">Analyzing...</p></div>';
+
+    const formData = new FormData();
+    formData.append('image', selectedFile);
+
+    try {
+        const resp = await fetch('/testing/analyze', { method: 'POST', body: formData });
+        const data = await resp.json();
+        renderResults(data);
+    } catch (err) {
+        resultArea.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--danger);"><i class="ph ph-warning" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>Error: ${err.message}</div>`;
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ph ph-scan" style="margin-right: 0.5rem;"></i> Analyze Face';
+}
+
+function renderResults(data) {
+    const resultArea = document.getElementById('resultArea');
+    let html = `<div style="margin-bottom: 1rem; display: flex; gap: 1rem;">
+        <div style="flex: 1; text-align: center; padding: 0.5rem; background: rgba(0,0,0,0.2); border-radius: var(--radius-sm);">
+            <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase;">Faces</div>
+            <div style="font-size: 1.5rem; font-weight: 700;">${data.faces_detected}</div>
+        </div>
+        <div style="flex: 1; text-align: center; padding: 0.5rem; background: rgba(0,0,0,0.2); border-radius: var(--radius-sm);">
+            <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase;">Time</div>
+            <div style="font-size: 1.5rem; font-weight: 700;">${data.processing_time_ms}ms</div>
+        </div>
+    </div>`;
+
+    if (data.attendance_logged && data.attendance_logged.length > 0) {
+        html += `<div style="padding: 0.75rem; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); border-radius: var(--radius-sm); margin-bottom: 1rem; font-size: 0.85rem;">
+            <i class="ph ph-check-circle" style="color: var(--success); margin-right: 0.25rem;"></i>
+            Attendance logged: ${data.attendance_logged.join(', ')}
+        </div>`;
+    }
+
+    data.results.forEach((r, i) => {
+        const confColor = r.confidence >= 45 ? 'var(--success)' : r.confidence >= 20 ? 'var(--warning)' : 'var(--danger)';
+        const livenessColor = r.liveness_pass ? 'var(--success)' : 'var(--danger)';
+        html += `<div style="padding: 1rem; border: 1px solid var(--border-light); border-radius: var(--radius-sm); margin-bottom: 0.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <span style="font-weight: 600; font-size: 1rem;">${r.name}</span>
+                    <span style="color: var(--text-muted); font-size: 0.8rem; margin-left: 0.5rem;">${r.student_id}</span>
+                </div>
+                <span style="color: ${confColor}; font-weight: 700;">${r.confidence}%</span>
+            </div>
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                <span class="badge ${r.decision === 'high' ? 'badge-success' : r.decision === 'soft' ? 'badge-warning' : 'badge-danger'}">${r.decision}</span>
+                ${data.liveness_enabled ? `<span class="badge" style="background: rgba(${r.liveness_pass ? '16,185,129' : '239,68,68'},0.15); color: ${livenessColor}; border: 1px solid ${livenessColor}40;">
+                    ${r.liveness_pass ? '✓ Live' : '✕ Spoof?'} (${(r.liveness_score * 100).toFixed(0)}%)
+                </span>` : ''}
+            </div>
+        </div>`;
+    });
+
+    resultArea.innerHTML = html;
+
+    // Show annotated image
+    if (data.annotated_image) {
+        document.getElementById('annotatedSection').style.display = 'block';
+        document.getElementById('annotatedImg').src = data.annotated_image;
+    }
+}
+</script>
+<style>@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
+{% endblock %}

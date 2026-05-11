@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block page_title %}Live Feed{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; min-height: 70vh;">
+    <div class="glass-card" style="display: flex; flex-direction: column;">
+        <h2 class="section-title"><i class="ph ph-video-camera" style="color: var(--success);"></i> Camera Feed</h2>
+
+        <div id="feedContainer" style="flex: 1; display: flex; align-items: center; justify-content: center; min-height: 400px; background: rgba(0,0,0,0.3); border-radius: var(--radius-sm); margin-top: 1rem; position: relative;">
+            <div id="feedPlaceholder" style="text-align: center; color: var(--text-muted);">
+                <i class="ph ph-video-camera" style="font-size: 4rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
+                <p>Select a camera source and click Start</p>
+                <p style="font-size: 0.8rem; margin-top: 0.5rem;">
+                    Webcam access requires HTTPS in production.
+                    For local testing, use localhost.
+                </p>
+            </div>
+            <video id="liveVideo" style="display: none; width: 100%; border-radius: var(--radius-sm);" autoplay muted playsinline></video>
+            <canvas id="overlayCanvas" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
+        </div>
+
+        <div style="display: flex; gap: 1rem; margin-top: 1rem; align-items: center;">
+            <select id="cameraSelect" class="form-control" style="flex: 1;">
+                <option value="webcam">Local Webcam</option>
+                {% for c in classrooms %}
+                {% if c.camera_url %}
+                <option value="{{ c.camera_url }}">{{ c.name }}</option>
+                {% endif %}
+                {% endfor %}
+            </select>
+            <button id="startBtn" class="btn btn-success" onclick="startFeed()">
+                <i class="ph ph-play" style="margin-right: 0.5rem;"></i> Start
+            </button>
+            <button id="stopBtn" class="btn btn-danger" onclick="stopFeed()" style="display: none;">
+                <i class="ph ph-stop" style="margin-right: 0.5rem;"></i> Stop
+            </button>
+        </div>
+    </div>
+
+    <div class="glass-card" style="display: flex; flex-direction: column;">
+        <h2 class="section-title"><i class="ph ph-list-checks" style="color: var(--warning);"></i> Live Detections</h2>
+        <div id="liveDetections" style="flex: 1; overflow-y: auto; margin-top: 1rem;">
+            <div style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                <i class="ph ph-clock" style="font-size: 2rem; display: block; margin-bottom: 0.5rem; opacity: 0.4;"></i>
+                <p>Detections will appear here in real-time</p>
+            </div>
+        </div>
+        <div id="liveStats" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-light);">
+            <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+                <span style="color: var(--text-muted);">Identified:</span>
+                <span id="identifiedCount" style="color: var(--success); font-weight: 600;">0</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-top: 0.25rem;">
+                <span style="color: var(--text-muted);">Unknown:</span>
+                <span id="unknownCount" style="color: var(--danger); font-weight: 600;">0</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let stream = null;
+let isRunning = false;
+
+async function startFeed() {
+    const source = document.getElementById('cameraSelect').value;
+    const video = document.getElementById('liveVideo');
+    const placeholder = document.getElementById('feedPlaceholder');
+
+    try {
+        if (source === 'webcam') {
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: 640, height: 480, facingMode: 'user' }
+            });
+            video.srcObject = stream;
+        }
+
+        placeholder.style.display = 'none';
+        video.style.display = 'block';
+        document.getElementById('startBtn').style.display = 'none';
+        document.getElementById('stopBtn').style.display = 'inline-flex';
+        isRunning = true;
+
+    } catch (err) {
+        alert('Camera access failed: ' + err.message);
+    }
+}
+
+function stopFeed() {
+    const video = document.getElementById('liveVideo');
+    const placeholder = document.getElementById('feedPlaceholder');
+
+    if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+    }
+
+    video.style.display = 'none';
+    video.srcObject = null;
+    placeholder.style.display = 'block';
+    document.getElementById('startBtn').style.display = 'inline-flex';
+    document.getElementById('stopBtn').style.display = 'none';
+    isRunning = false;
+}
+</script>
+{% endblock %}

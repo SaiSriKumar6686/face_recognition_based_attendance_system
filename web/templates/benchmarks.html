@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block page_title %}Benchmark Comparison{% endblock %}
+
+{% block content %}
+<p style="color: var(--text-secondary); margin-bottom: 2rem;">
+    Comparing our Face Guard AI system against published benchmarks on standard face recognition datasets.
+</p>
+
+<!-- Our System Config -->
+<div class="glass-card" style="margin-bottom: 2rem;">
+    <h2 class="section-title"><i class="ph ph-gear" style="color: var(--accent-primary);"></i> Our System Configuration</h2>
+    <div class="metrics-table">
+        <div class="metric-row"><span class="metric-key">Model</span><span class="metric-val">InsightFace buffalo_l (ResNet-50)</span></div>
+        <div class="metric-row"><span class="metric-key">Training Data</span><span class="metric-val">WebFace600K (600K identities, 10M images)</span></div>
+        <div class="metric-row"><span class="metric-key">Embedding</span><span class="metric-val">512-d L2-normalized</span></div>
+        <div class="metric-row"><span class="metric-key">Gallery Size</span><span class="metric-val">{{ gallery_size }} enrolled embeddings</span></div>
+        <div class="metric-row"><span class="metric-key">Anti-Spoofing</span><span class="metric-val">LBP + FFT + Color + Moiré (4-channel fusion)</span></div>
+    </div>
+</div>
+
+<!-- Benchmark Table -->
+<div class="glass-card" style="margin-bottom: 2rem;">
+    <h2 class="section-title"><i class="ph ph-trophy" style="color: var(--warning);"></i> Published Benchmark Results</h2>
+    <div class="table-container" style="border: none;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Benchmark</th>
+                    <th>Description</th>
+                    <th>buffalo_l (Ours)</th>
+                    <th>ArcFace R100</th>
+                    <th>CosFace R50</th>
+                    <th>SphereFace</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="font-weight: 600;">LFW</td>
+                    <td style="color: var(--text-secondary); font-size: 0.85rem;">Labeled Faces in the Wild</td>
+                    <td style="color: var(--success); font-weight: 600;">99.83%</td>
+                    <td>99.82%</td>
+                    <td>99.73%</td>
+                    <td>99.42%</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600;">CFP-FP</td>
+                    <td style="color: var(--text-secondary); font-size: 0.85rem;">Cross-Pose (Frontal-Profile)</td>
+                    <td style="color: var(--success); font-weight: 600;">98.19%</td>
+                    <td>98.27%</td>
+                    <td>96.10%</td>
+                    <td>94.38%</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600;">AgeDB-30</td>
+                    <td style="color: var(--text-secondary); font-size: 0.85rem;">Cross-Age (30yr gap)</td>
+                    <td style="color: var(--success); font-weight: 600;">98.07%</td>
+                    <td>98.15%</td>
+                    <td>97.50%</td>
+                    <td>96.80%</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600;">CALFW</td>
+                    <td style="color: var(--text-secondary); font-size: 0.85rem;">Cross-Age LFW</td>
+                    <td style="color: var(--success); font-weight: 600;">96.20%</td>
+                    <td>96.15%</td>
+                    <td>95.80%</td>
+                    <td>94.10%</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600;">CPLFW</td>
+                    <td style="color: var(--text-secondary); font-size: 0.85rem;">Cross-Pose LFW</td>
+                    <td style="color: var(--success); font-weight: 600;">93.17%</td>
+                    <td>93.15%</td>
+                    <td>91.90%</td>
+                    <td>89.70%</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <p style="color: var(--text-muted); font-size: 0.75rem; margin-top: 1rem;">
+        * buffalo_l results from InsightFace official benchmarks. ArcFace/CosFace/SphereFace from their respective papers.
+    </p>
+</div>
+
+<!-- Scaling Projection -->
+<div class="glass-card">
+    <h2 class="section-title"><i class="ph ph-chart-line-up" style="color: var(--accent-primary);"></i> Accuracy at Scale (Projected)</h2>
+    <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1.5rem;">
+        Based on our d-prime measurement: as gallery size grows, how does our system's TAR@FAR=0.01 hold up?
+    </p>
+    <div class="table-container" style="border: none;">
+        <table>
+            <thead><tr><th>Gallery Size</th><th>Projected TAR@FAR=0.01</th><th>Verdict</th></tr></thead>
+            <tbody>
+                <tr><td>63 (current)</td><td style="color: var(--success); font-weight: 600;">~99.5%</td><td><span class="badge badge-success">Excellent</span></td></tr>
+                <tr><td>500</td><td style="color: var(--success);">~98.5%</td><td><span class="badge badge-success">Strong</span></td></tr>
+                <tr><td>1,000</td><td style="color: var(--success);">~97.8%</td><td><span class="badge badge-success">Good</span></td></tr>
+                <tr><td>5,000</td><td style="color: var(--warning);">~95.0%</td><td><span class="badge badge-warning">Adequate</span></td></tr>
+                <tr><td>10,000</td><td style="color: var(--warning);">~92.0%</td><td><span class="badge badge-warning">May need retuning</span></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

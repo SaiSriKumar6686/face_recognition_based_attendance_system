@@ -77,3 +77,15 @@ continual_learning:
 database:
   path: data/embeddings/attendance.db
   faiss_index: data/embeddings/faiss.index
+
+anti_spoof:
+  enabled: true                               # set to false to disable liveness checks
+  threshold: 0.40                             # minimum liveness score to log attendance
+
+smtp:                                         # optional — leave empty to disable email alerts
+  host: ""                                    # e.g. smtp.gmail.com
+  port: 587
+  username: ""
+  password: ""
+  from_email: ""
+  admin_email: ""

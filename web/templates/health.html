@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block page_title %}System Health{% endblock %}
+
+{% block content %}
+<!-- Stats -->
+<div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
+    <div class="glass-card stat-card">
+        <span class="stat-label">Requests (24h)</span>
+        <span class="stat-value">{{ stats.total_requests }}</span>
+    </div>
+    <div class="glass-card stat-card">
+        <span class="stat-label">Avg Inference</span>
+        <span class="stat-value" style="font-size: 2rem;">{{ stats.avg_inference_ms }}ms</span>
+    </div>
+    <div class="glass-card stat-card">
+        <span class="stat-label">Success Rate</span>
+        <span class="stat-value" style="color: {% if stats.success_rate >= 95 %}var(--success){% elif stats.success_rate >= 80 %}var(--warning){% else %}var(--danger){% endif %};">{{ stats.success_rate }}%</span>
+    </div>
+    <div class="glass-card stat-card">
+        <span class="stat-label">Faces Detected</span>
+        <span class="stat-value">{{ stats.total_faces }}</span>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="dashboard-grid" style="margin-top: 1.5rem;">
+    <div class="glass-card" style="flex: 1;">
+        <h2 class="section-title"><i class="ph ph-timer" style="color: var(--accent-primary);"></i> Inference Time Distribution</h2>
+        <div style="height: 250px;"><canvas id="inferenceChart"></canvas></div>
+    </div>
+    <div class="glass-card" style="flex: 1;">
+        <h2 class="section-title"><i class="ph ph-activity" style="color: var(--warning);"></i> Hourly Request Volume</h2>
+        <div style="height: 250px;"><canvas id="hourlyChart"></canvas></div>
+    </div>
+</div>
+
+<!-- System Info -->
+<div class="glass-card" style="margin-top: 1.5rem;">
+    <h2 class="section-title"><i class="ph ph-info" style="color: var(--text-secondary);"></i> System Information</h2>
+    <div class="metrics-table">
+        <div class="metric-row"><span class="metric-key">Python Version</span><span class="metric-val" id="pyVersion">Loading...</span></div>
+        <div class="metric-row"><span class="metric-key">Database</span><span class="metric-val">SQLite (SQLAlchemy ORM)</span></div>
+        <div class="metric-row"><span class="metric-key">Index</span><span class="metric-val">FAISS IndexFlatIP</span></div>
+        <div class="metric-row"><span class="metric-key">Framework</span><span class="metric-val">Flask + Jinja2</span></div>
+        <div class="metric-row"><span class="metric-key">Anti-Spoofing</span><span class="metric-val">LBP + FFT + Color + Moiré (4-channel)</span></div>
+        <div class="metric-row"><span class="metric-key">Uptime</span><span class="metric-val" id="uptime">Calculating...</span></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const stats = {{ stats | tojson }};
+
+// Inference Time Histogram
+if (stats.inference_times && stats.inference_times.length > 0) {
+    const times = stats.inference_times;
+    const bins = [0, 100, 200, 500, 1000, 2000, 5000];
+    const labels = ['<100', '100-200', '200-500', '500-1000', '1000-2000', '2000+'];
+    const counts = labels.map(() => 0);
+    times.forEach(t => {
+        if (t < 100) counts[0]++;
+        else if (t < 200) counts[1]++;
+        else if (t < 500) counts[2]++;
+        else if (t < 1000) counts[3]++;
+        else if (t < 2000) counts[4]++;
+        else counts[5]++;
+    });
+
+    new Chart(document.getElementById('inferenceChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: labels.map(l => l + 'ms'),
+            datasets: [{
+                label: 'Count', data: counts,
+                backgroundColor: ['#10b981', '#34d399', '#f59e0b', '#f97316', '#ef4444', '#dc2626'],
+                borderRadius: 4, borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { color: '#64748b' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
+            }
+        }
+    });
+}
+
+// Hourly Volume
+if (stats.hourly_requests && stats.hourly_requests.length > 0) {
+    new Chart(document.getElementById('hourlyChart').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: stats.hourly_requests.map(h => h.hour),
+            datasets: [{
+                label: 'Requests', data: stats.hourly_requests.map(h => h.count),
+                borderColor: 'rgba(99, 102, 241, 1)', backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                fill: true, tension: 0.4, borderWidth: 2, pointRadius: 3,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { color: '#64748b' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
+            }
+        }
+    });
+}
+
+// System info
+document.getElementById('pyVersion').textContent = 'Python 3.10+';
+const startTime = Date.now();
+setInterval(() => {
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    const h = Math.floor(elapsed / 3600);
+    const m = Math.floor((elapsed % 3600) / 60);
+    const s = elapsed % 60;
+    document.getElementById('uptime').textContent = `${h}h ${m}m ${s}s (this session)`;
+}, 1000);
+</script>
+{% endblock %}

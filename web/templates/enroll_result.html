@@ -1,19 +1,18 @@
 {% extends "base.html" %}
-
 {% block page_title %}Enrollment Result{% endblock %}
-
 {% block content %}
-<div class="glass-card" style="max-width: 500px; margin: 2rem auto; text-align: center; padding: 3rem 2rem;">
+<div class="glass-card" style="text-align: center; padding: 3rem; max-width: 500px; margin: 2rem auto;">
     {% if success %}
-        <i class="ph ph-check-circle" style="font-size: 4rem; color: var(--success); margin-bottom: 1rem;"></i>
-        <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Enrollment Successful</h2>
-        <p style="color: var(--text-secondary); margin-bottom: 2rem;">{{ message }}</p>
-        <a href="{{ url_for('students') }}" class="btn btn-primary" style="width: 100%;">Return to Students List</a>
+    <i class="ph ph-check-circle" style="font-size: 4rem; color: var(--success); display: block; margin-bottom: 1rem;"></i>
     {% else %}
-        <i class="ph ph-x-circle" style="font-size: 4rem; color: var(--danger); margin-bottom: 1rem;"></i>
-        <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Enrollment Failed</h2>
-        <p style="color: var(--text-secondary); margin-bottom: 2rem;">{{ message }}</p>
-        <a href="{{ url_for('students') }}" class="btn btn-primary" style="width: 100%;">Try Again</a>
+    <i class="ph ph-x-circle" style="font-size: 4rem; color: var(--danger); display: block; margin-bottom: 1rem;"></i>
     {% endif %}
+    <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem;">{{ message }}</h2>
+    <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: center;">
+        <a href="{{ url_for('students') }}" class="btn btn-primary">
+            <i class="ph ph-users" style="margin-right: 0.5rem;"></i> View Students
+        </a>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-outline">Dashboard</a>
+    </div>
 </div>
 {% endblock %}

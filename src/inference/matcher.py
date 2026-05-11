@@ -132,6 +132,17 @@ class Matcher:
         else:
             return None, score, "unknown"
 
+    def get_all_embeddings(self) -> np.ndarray:
+        """Return all embeddings stored in the FAISS index."""
+        if self.index.ntotal == 0:
+            return np.empty((0, EMB_DIM), dtype=np.float32)
+        # For IndexFlatIP, we can directly reconstruct the vectors
+        return np.array([self.index.reconstruct(i) for i in range(self.index.ntotal)])
+
+    def get_all_ids(self) -> list[str]:
+        """Return all student IDs in the same order as get_all_embeddings()."""
+        return [self.id_to_student.get(i) for i in range(self.index.ntotal)]
+
 
 # ── Singleton helper ──────────────────────────────────────────────────
 

@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block page_title %}System Metrics{% endblock %}
+
+{% block content %}
+<div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
+    <div class="glass-card stat-card">
+        <span class="stat-label">Model</span>
+        <span class="stat-value" style="font-size: 1.5rem;">ResNet-50</span>
+    </div>
+    <div class="glass-card stat-card">
+        <span class="stat-label">Gallery Size</span>
+        <span class="stat-value">{{ gallery_size }}</span>
+    </div>
+    <div class="glass-card stat-card">
+        <span class="stat-label">Enrolled Students</span>
+        <span class="stat-value">{{ total_students }}</span>
+    </div>
+    <div class="glass-card stat-card">
+        <span class="stat-label">Total Attendances</span>
+        <span class="stat-value">{{ total_attendance }}</span>
+    </div>
+</div>
+
+<div class="metrics-grid" style="margin-top: 2rem;">
+    <div class="glass-card">
+        <h2 class="section-title"><i class="ph ph-cpu" style="color: var(--accent-primary);"></i> Model Architecture</h2>
+        <div class="metrics-table">
+            <div class="metric-row"><span class="metric-key">Backbone</span><span class="metric-val">InsightFace buffalo_l (ResNet-50)</span></div>
+            <div class="metric-row"><span class="metric-key">Training Data</span><span class="metric-val">WebFace600K (600,000 identities)</span></div>
+            <div class="metric-row"><span class="metric-key">Embedding Dim</span><span class="metric-val">512-d L2-normalized</span></div>
+            <div class="metric-row"><span class="metric-key">Detector</span><span class="metric-val">RetinaFace (det_10g)</span></div>
+            <div class="metric-row"><span class="metric-key">Matching</span><span class="metric-val">FAISS IndexFlatIP (cosine similarity)</span></div>
+            <div class="metric-row"><span class="metric-key">Preprocessing</span><span class="metric-val">CLAHE + Bilateral Denoise + Unsharp Mask</span></div>
+        </div>
+    </div>
+
+    <div class="glass-card">
+        <h2 class="section-title"><i class="ph ph-sliders" style="color: var(--warning);"></i> Thresholds</h2>
+        <div class="metrics-table">
+            <div class="metric-row"><span class="metric-key">High Confidence</span><span class="metric-val"><span class="badge badge-success">&ge; 45%</span></span></div>
+            <div class="metric-row"><span class="metric-key">Soft Match</span><span class="metric-val"><span class="badge badge-warning">&ge; 20%</span></span></div>
+            <div class="metric-row"><span class="metric-key">Unknown</span><span class="metric-val"><span class="badge badge-danger">&lt; 20%</span></span></div>
+            <div class="metric-row"><span class="metric-key">Dedup Window</span><span class="metric-val">5 minutes</span></div>
+            <div class="metric-row"><span class="metric-key">Input Size</span><span class="metric-val">112 &times; 112 px (aligned)</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- Anti-Spoofing Details -->
+<div class="glass-card" style="margin-top: 2rem;">
+    <h2 class="section-title"><i class="ph ph-shield-check" style="color: var(--success);"></i> Anti-Spoofing System</h2>
+    <div class="metrics-grid" style="margin-top: 1rem;">
+        <div>
+            <div class="metrics-table">
+                <div class="metric-row"><span class="metric-key">Status</span><span class="metric-val">{% if liveness_enabled %}<span class="badge badge-success">Active</span>{% else %}<span class="badge badge-danger">Disabled</span>{% endif %}</span></div>
+                <div class="metric-row"><span class="metric-key">Threshold</span><span class="metric-val">{{ (liveness_threshold * 100)|int }}%</span></div>
+                <div class="metric-row"><span class="metric-key">Methods</span><span class="metric-val">4-channel fusion</span></div>
+            </div>
+        </div>
+        <div>
+            <div class="metrics-table">
+                <div class="metric-row"><span class="metric-key">LBP Texture</span><span class="metric-val">35% weight</span></div>
+                <div class="metric-row"><span class="metric-key">FFT Frequency</span><span class="metric-val">30% weight</span></div>
+                <div class="metric-row"><span class="metric-key">Color Analysis</span><span class="metric-val">15% weight</span></div>
+                <div class="metric-row"><span class="metric-key">Moiré Detection</span><span class="metric-val">20% weight</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Evaluation CTA -->
+<div class="glass-card" style="margin-top: 2rem; text-align: center; padding: 2.5rem;">
+    <i class="ph ph-chart-line-up" style="font-size: 3rem; display: block; margin-bottom: 1rem; color: var(--accent-primary);"></i>
+    <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem;">Biometric Evaluation</h3>
+    <p style="color: var(--text-secondary); max-width: 600px; margin: 0 auto 1.5rem;">
+        Run the analytical evaluation script to compute d-prime, genuine/imposter distributions,
+        and projected accuracy at massive scales.
+    </p>
+    <button id="runEvalBtn" class="btn btn-primary" onclick="runEvaluation()" style="padding: 0.875rem 2rem;">
+        <i class="ph ph-play" style="margin-right: 0.5rem;"></i> Run Evaluation
+    </button>
+    <div id="evalResults" style="display: none; margin-top: 2rem; text-align: left;">
+        <pre id="evalOutput" style="background: rgba(0,0,0,0.3); padding: 1.5rem; border-radius: var(--radius-sm);
+             font-family: 'Courier New', monospace; font-size: 0.8rem; color: var(--text-secondary);
+             max-height: 500px; overflow-y: auto; white-space: pre-wrap; border: 1px solid var(--border-light);"></pre>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function runEvaluation() {
+    const btn = document.getElementById('runEvalBtn');
+    const results = document.getElementById('evalResults');
+    const output = document.getElementById('evalOutput');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ph ph-spinner" style="margin-right: 0.5rem; animation: spin 1s linear infinite;"></i> Running...';
+    results.style.display = 'block';
+    output.textContent = 'Starting evaluation...\n';
+    try {
+        const resp = await fetch('/api/run-evaluation');
+        const data = await resp.json();
+        output.textContent = data.output || 'Evaluation complete.';
+    } catch (err) { output.textContent = 'Error: ' + err.message; }
+    finally { btn.disabled = false; btn.innerHTML = '<i class="ph ph-play" style="margin-right: 0.5rem;"></i> Run Evaluation'; }
+}
+</script>
+<style>@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
+{% endblock %}

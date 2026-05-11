@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block page_title %}Audit Log{% endblock %}
+
+{% block content %}
+<p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+    Complete audit trail of all administrative actions. This log supports compliance with data protection regulations.
+</p>
+
+{% if logs %}
+<div class="table-container">
+    <table>
+        <thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Target</th><th>Details</th></tr></thead>
+        <tbody>
+            {% for l in logs %}
+            <tr>
+                <td style="color: var(--text-secondary); font-size: 0.85rem; white-space: nowrap;">{{ l.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td style="font-weight: 500;">{{ l.user }}</td>
+                <td>
+                    {% if 'LOGIN' in l.action %}<span class="badge badge-success">{{ l.action }}</span>
+                    {% elif 'DELETE' in l.action %}<span class="badge badge-danger">{{ l.action }}</span>
+                    {% elif 'EXPORT' in l.action %}<span class="badge badge-warning">{{ l.action }}</span>
+                    {% else %}<span class="badge" style="background: rgba(99,102,241,0.15); color: var(--accent-primary); border: 1px solid rgba(99,102,241,0.3);">{{ l.action }}</span>
+                    {% endif %}
+                </td>
+                <td style="color: var(--text-secondary);">{{ l.target or '—' }}</td>
+                <td style="color: var(--text-muted); font-size: 0.85rem;">{{ l.details or '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="glass-card empty-state">
+    <i class="ph ph-scroll" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.5;"></i>
+    <h3>No audit entries</h3>
+    <p>Actions will be recorded here automatically.</p>
+</div>
+{% endif %}
+{% endblock %}

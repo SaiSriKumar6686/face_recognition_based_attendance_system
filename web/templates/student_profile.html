@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block page_title %}{{ student.name }}{% endblock %}
+
+{% block header_actions %}
+<div style="display: flex; gap: 0.75rem;">
+    <a href="{{ url_for('students') }}" class="btn btn-outline">
+        <i class="ph ph-arrow-left" style="margin-right: 0.5rem;"></i> Back
+    </a>
+    <form action="{{ url_for('delete_student', student_id=student.student_id) }}" method="POST"
+          onsubmit="return confirm('Are you sure? This will delete ALL data for this student including attendance records, crops, and embeddings. This action cannot be undone.');">
+        <button type="submit" class="btn btn-danger">
+            <i class="ph ph-trash" style="margin-right: 0.5rem;"></i> Delete Student
+        </button>
+    </form>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="profile-layout">
+    <div class="glass-card profile-card">
+        <div class="profile-avatar">
+            {% if has_photo %}
+            <img src="{{ url_for('serve_ref_image', filepath=student.student_id + '.jpeg') }}"
+                 alt="{{ student.name }}"
+                 onerror="this.onerror=null; this.src='{{ url_for('serve_ref_image', filepath=student.student_id + '.jpg') }}';">
+            {% else %}
+            <div class="avatar-placeholder">
+                <i class="ph ph-user" style="font-size: 3rem;"></i>
+            </div>
+            {% endif %}
+        </div>
+        <h2 style="font-size: 1.5rem; font-weight: 700; margin-top: 1rem;">{{ student.name }}</h2>
+        <p style="color: var(--text-secondary); margin-top: 0.25rem;">{{ student.roll_no }}</p>
+        <p style="color: var(--text-muted); font-size: 0.875rem;">ID: {{ student.student_id }}</p>
+        <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 1rem;">
+            Enrolled: {{ student.enrolled_at.strftime('%B %d, %Y') }}
+        </p>
+
+        <!-- Consent Management -->
+        <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-light);">
+            <p style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;">Biometric Consent</p>
+            {% if student.consent_given %}
+                <span class="badge badge-success" style="margin-bottom: 0.5rem; display: inline-block;">Consent Given</span>
+                <p style="font-size: 0.75rem; color: var(--text-muted);">{{ student.consent_date.strftime('%Y-%m-%d') if student.consent_date else '' }}</p>
+                <form action="{{ url_for('update_consent', student_id=student.student_id) }}" method="POST" style="margin-top: 0.5rem;">
+                    <input type="hidden" name="consent" value="false">
+                    <button type="submit" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.3rem 0.75rem;">Revoke Consent</button>
+                </form>
+            {% else %}
+                <span class="badge badge-warning" style="margin-bottom: 0.5rem; display: inline-block;">Pending</span>
+                <form action="{{ url_for('update_consent', student_id=student.student_id) }}" method="POST" style="margin-top: 0.5rem;">
+                    <input type="hidden" name="consent" value="true">
+                    <button type="submit" class="btn btn-success" style="font-size: 0.75rem; padding: 0.3rem 0.75rem;">Record Consent</button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="profile-stats">
+        <div class="glass-card stat-card">
+            <span class="stat-label">Attendance %</span>
+            <span class="stat-value" style="color: {% if percentage >= 75 %}var(--success){% elif percentage >= 50 %}var(--warning){% else %}var(--danger){% endif %};">{{ percentage }}%</span>
+        </div>
+        <div class="glass-card stat-card">
+            <span class="stat-label">Days Present</span>
+            <span class="stat-value">{{ total_days }}</span>
+        </div>
+        <div class="glass-card stat-card">
+            <span class="stat-label">Total Records</span>
+            <span class="stat-value">{{ history|length }}</span>
+        </div>
+    </div>
+</div>
+
+<!-- Attendance Trend Sparkline -->
+{% if history|length > 1 %}
+<div class="glass-card" style="margin-top: 1.5rem;">
+    <h2 class="section-title"><i class="ph ph-trend-up" style="color: var(--accent-primary);"></i> Attendance Trend</h2>
+    <div style="height: 150px;"><canvas id="trendChart"></canvas></div>
+</div>
+{% endif %}
+
+<h2 style="margin-top: 2rem; margin-bottom: 1rem;" class="section-title">
+    <i class="ph ph-clock-clockwise"></i> Attendance History
+</h2>
+
+{% if history %}
+<div class="table-container">
+    <table>
+        <thead><tr><th>#</th><th>Date</th><th>Time</th><th>Confidence</th><th>Liveness</th><th>Status</th></tr></thead>
+        <tbody>
+            {% for h in history %}
+            <tr>
+                <td style="color: var(--text-muted);">{{ loop.index }}</td>
+                <td style="font-weight: 500;">{{ h.date }}</td>
+                <td style="color: var(--text-secondary);">{{ h.time }}</td>
+                <td>
+                    {% if h.confidence and h.confidence >= 0.45 %}<span style="color: var(--success);">{{ "%.1f"|format(h.confidence * 100) }}%</span>
+                    {% else %}<span style="color: var(--warning);">{{ "%.1f"|format((h.confidence or 0) * 100) }}%</span>{% endif %}
+                </td>
+                <td>
+                    {% if h.liveness_score %}<span style="color: {% if h.liveness_score >= 0.4 %}var(--success){% else %}var(--danger){% endif %};">{{ "%.0f"|format(h.liveness_score * 100) }}%</span>
+                    {% else %}<span style="color: var(--text-muted);">N/A</span>{% endif %}
+                </td>
+                <td>{% if h.confidence and h.confidence >= 0.45 %}<span class="badge badge-success">Verified</span>{% else %}<span class="badge badge-warning">Review</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="glass-card empty-state">
+    <i class="ph ph-calendar-blank" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.5;"></i>
+    <h3>No attendance records</h3>
+    <p>This student hasn't been detected yet.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if history|length > 1 %}
+<script>
+const historyData = {{ history | tojson }};
+const dates = [...new Set(historyData.map(h => h.date))].reverse().slice(-14);
+const confs = dates.map(d => {
+    const recs = historyData.filter(h => h.date === d);
+    return Math.max(...recs.map(r => (r.confidence || 0) * 100));
+});
+
+new Chart(document.getElementById('trendChart').getContext('2d'), {
+    type: 'line',
+    data: {
+        labels: dates.map(d => d.slice(5)),
+        datasets: [{
+            label: 'Confidence %', data: confs,
+            borderColor: 'rgba(99, 102, 241, 1)', backgroundColor: 'rgba(99, 102, 241, 0.1)',
+            fill: true, tension: 0.4, borderWidth: 2, pointRadius: 3,
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { min: 0, max: 100, ticks: { color: '#64748b' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+            x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
+        }
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

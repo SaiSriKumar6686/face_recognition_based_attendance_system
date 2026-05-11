@@ -12,10 +12,9 @@
     {% for p in pending %}
     <div class="glass-card review-card">
         <div class="review-img-wrap">
-            <!-- Convert absolute path to something the browser can render, or ideally serve it via a Flask route. 
-                 Since the backend stores absolute paths, we'll need a way to serve them.
-                 For this demo, we assume the path is served or we'll just show a placeholder if it breaks. -->
-            <img src="/static/placeholder_face.jpg" alt="Face Crop" title="{{ p.crop_path }}">
+            <img src="/crops/{{ p.crop_path | replace('\\', '/') | replace('data/', '') }}"
+                 alt="Face Crop"
+                 onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted)\'><i class=\'ph ph-image-broken\' style=\'font-size:2rem\'></i></div>';">
         </div>
         <div>
             <h3 style="font-size: 1.125rem;">Candidate: {{ p.student_id }}</h3>

@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block page_title %}Attendance Records{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('attendance_export', date_from=date_from, date_to=date_to, student_id=student_filter, status=status_filter, classroom_id=classroom_filter) }}"
+   class="btn btn-primary" id="exportBtn">
+    <i class="ph ph-download-simple" style="margin-right: 0.5rem;"></i>
+    Export CSV
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="glass-card filter-bar">
+    <form method="GET" action="{{ url_for('attendance') }}" class="filter-form">
+        <div class="filter-group">
+            <label for="date_from">From</label>
+            <input type="date" id="date_from" name="date_from" class="form-control" value="{{ date_from }}">
+        </div>
+        <div class="filter-group">
+            <label for="date_to">To</label>
+            <input type="date" id="date_to" name="date_to" class="form-control" value="{{ date_to }}">
+        </div>
+        <div class="filter-group">
+            <label for="student_id">Student</label>
+            <select id="student_id" name="student_id" class="form-control">
+                <option value="">All Students</option>
+                {% for s in all_students %}
+                <option value="{{ s.student_id }}" {% if student_filter == s.student_id %}selected{% endif %}>
+                    {{ s.name }} ({{ s.student_id }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="classroom_id">Classroom</label>
+            <select id="classroom_id" name="classroom_id" class="form-control">
+                <option value="">All Rooms</option>
+                {% for c in classrooms %}
+                <option value="{{ c.id }}" {% if classroom_filter == c.id|string %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="status">Status</label>
+            <select id="status" name="status" class="form-control">
+                <option value="">All</option>
+                <option value="verified" {% if status_filter == 'verified' %}selected{% endif %}>Verified</option>
+                <option value="review" {% if status_filter == 'review' %}selected{% endif %}>Review</option>
+            </select>
+        </div>
+        <div class="filter-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="ph ph-funnel" style="margin-right: 0.25rem;"></i> Filter
+            </button>
+            <a href="{{ url_for('attendance') }}" class="btn btn-outline">Clear</a>
+        </div>
+    </form>
+</div>
+
+<div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-top: 1.5rem;">
+    <div class="glass-card stat-card">
+        <span class="stat-label">Total Records</span>
+        <span class="stat-value">{{ total_records }}</span>
+    </div>
+    <div class="glass-card stat-card">
+        <span class="stat-label">Unique Present</span>
+        <span class="stat-value" style="color: var(--success);">{{ present_count }}</span>
+    </div>
+    <div class="glass-card stat-card">
+        <span class="stat-label">{% if not date_from and not date_to %}Absent Today{% else %}Filtered View{% endif %}</span>
+        <span class="stat-value" style="color: {% if absent_count > 0 %}var(--danger){% else %}var(--text-muted){% endif %};">
+            {% if not date_from and not date_to %}{{ absent_count }}{% else %}—{% endif %}
+        </span>
+    </div>
+</div>
+
+{% if records %}
+<div class="table-container" style="margin-top: 1.5rem;">
+    <table>
+        <thead><tr><th>#</th><th>Date</th><th>Time</th><th>Student ID</th><th>Name</th><th>Roll No</th><th>Confidence</th><th>Liveness</th><th>Status</th></tr></thead>
+        <tbody>
+            {% for r in records %}
+            <tr>
+                <td style="color: var(--text-muted);">{{ loop.index }}</td>
+                <td style="color: var(--text-secondary);">{{ r.timestamp.strftime('%Y-%m-%d') }}</td>
+                <td style="color: var(--text-secondary);">{{ r.timestamp.strftime('%H:%M:%S') }}</td>
+                <td><a href="{{ url_for('student_profile', student_id=r.student_id) }}" style="color: var(--accent-primary); text-decoration: none; font-weight: 500;">{{ r.student_id }}</a></td>
+                <td style="font-weight: 500;">{{ r.name }}</td>
+                <td style="color: var(--text-secondary);">{{ r.roll_no }}</td>
+                <td>
+                    {% set conf_pct = r.confidence * 100 if r.confidence else 0 %}
+                    <span style="color: {% if conf_pct >= 45 %}var(--success){% elif conf_pct >= 20 %}var(--warning){% else %}var(--danger){% endif %};">{{ "%.1f"|format(conf_pct) }}%</span>
+                </td>
+                <td>
+                    {% if r.liveness_score %}
+                    <span style="color: {% if r.liveness_score >= 0.4 %}var(--success){% else %}var(--danger){% endif %};">{{ "%.0f"|format(r.liveness_score * 100) }}%</span>
+                    {% else %}<span style="color: var(--text-muted);">N/A</span>{% endif %}
+                </td>
+                <td>
+                    {% if r.status == 'Verified' %}<span class="badge badge-success">Verified</span>
+                    {% else %}<span class="badge badge-warning">Review</span>{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="glass-card empty-state" style="margin-top: 1.5rem;">
+    <i class="ph ph-calendar-blank" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.5;"></i>
+    <h3>No attendance records found</h3>
+    <p>{% if date_from or date_to or student_filter %}Try adjusting your filters.{% else %}Use the <a href="{{ url_for('testing') }}" style="color: var(--accent-primary);">Testing</a> page to analyze images.{% endif %}</p>
+</div>
+{% endif %}
+{% endblock %}

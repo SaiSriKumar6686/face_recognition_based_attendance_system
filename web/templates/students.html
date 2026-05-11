@@ -9,25 +9,29 @@
 {% endblock %}
 
 {% block content %}
-
 {% if students %}
 <div class="table-container">
     <table>
-        <thead>
-            <tr>
-                <th>Roll No</th>
-                <th>Name</th>
-                <th>Student ID</th>
-                <th>Enrolled Date</th>
-            </tr>
-        </thead>
+        <thead><tr><th>Roll No</th><th>Name</th><th>Student ID</th><th>Consent</th><th>Enrolled</th><th>Action</th></tr></thead>
         <tbody>
             {% for s in students %}
             <tr>
                 <td style="font-weight: 500;">{{ s.roll_no }}</td>
-                <td>{{ s.name }}</td>
+                <td><a href="{{ url_for('student_profile', student_id=s.student_id) }}" style="color: var(--text-primary); text-decoration: none; font-weight: 500;">{{ s.name }}</a></td>
                 <td style="color: var(--text-secondary);">{{ s.student_id }}</td>
+                <td>
+                    {% if s.consent_given %}
+                        <span class="badge badge-success">Given</span>
+                    {% else %}
+                        <span class="badge badge-warning">Pending</span>
+                    {% endif %}
+                </td>
                 <td style="color: var(--text-secondary);">{{ s.enrolled_at.strftime('%Y-%m-%d') }}</td>
+                <td>
+                    <a href="{{ url_for('student_profile', student_id=s.student_id) }}" class="btn btn-outline" style="padding: 0.3rem 0.75rem; font-size: 0.8rem;">
+                        <i class="ph ph-arrow-right" style="margin-right: 0.25rem;"></i> View
+                    </a>
+                </td>
             </tr>
             {% endfor %}
         </tbody>
@@ -35,20 +39,20 @@
 </div>
 {% else %}
 <div class="glass-card empty-state">
-    <i class="ph ph-users" style="opacity: 1;"></i>
+    <i class="ph ph-users" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.5;"></i>
     <h3>No students enrolled</h3>
     <p>Add students to start tracking attendance.</p>
 </div>
 {% endif %}
 
-<!-- Simple Dialog for Enrollment (Native HTML5) -->
-<dialog id="enrollModal" class="glass-card" style="margin: auto; padding: 2rem; border: 1px solid var(--border-light); background: var(--bg-base); color: white; border-radius: var(--radius-md); max-width: 400px; width: 100%;">
+<!-- Enrollment Modal with Photo Upload -->
+<dialog id="enrollModal" class="glass-card" style="margin: auto; padding: 2rem; border: 1px solid var(--border-light); background: var(--bg-base); color: white; border-radius: var(--radius-md); max-width: 450px; width: 100%;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
         <h3 style="font-size: 1.25rem; font-weight: 600;">Enroll New Student</h3>
         <button onclick="document.getElementById('enrollModal').close()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer;"><i class="ph ph-x" style="font-size: 1.5rem;"></i></button>
     </div>
-    
-    <form action="{{ url_for('enroll') }}" method="POST">
+
+    <form action="{{ url_for('enroll') }}" method="POST" enctype="multipart/form-data">
         <div class="form-group">
             <label for="student_id">System ID (Folder Name)</label>
             <input type="text" id="student_id" name="student_id" class="form-control" required placeholder="e.g. s001">
@@ -61,14 +65,22 @@
             <label for="roll_no">Roll Number</label>
             <input type="text" id="roll_no" name="roll_no" class="form-control" required placeholder="e.g. 21CS001">
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Process Enrollment</button>
+        <div class="form-group">
+            <label for="photos">
+                <i class="ph ph-camera" style="margin-right: 0.25rem;"></i> Upload Photos (optional)
+            </label>
+            <input type="file" id="photos" name="photos" class="form-control" accept="image/*" multiple
+                   style="padding: 0.5rem;">
+            <small style="color: var(--text-muted); font-size: 0.75rem;">
+                Upload 1-5 photos of the student's face. If photos are already in the seed_images folder, leave this empty.
+            </small>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">
+            <i class="ph ph-user-plus" style="margin-right: 0.5rem;"></i>
+            Process Enrollment
+        </button>
     </form>
 </dialog>
 
-<style>
-    ::backdrop {
-        background: rgba(0, 0, 0, 0.7);
-        backdrop-filter: blur(4px);
-    }
-</style>
+<style>::backdrop { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }</style>
 {% endblock %}

@@ -9,12 +9,12 @@
         <span class="stat-value">{{ total_students }}</span>
     </div>
     <div class="glass-card stat-card">
-        <span class="stat-label">Unique Present Today</span>
-        <span class="stat-value">{{ unique_today }}</span>
+        <span class="stat-label">Present Today</span>
+        <span class="stat-value" style="color: var(--success);">{{ unique_today }}</span>
     </div>
     <div class="glass-card stat-card">
-        <span class="stat-label">Total Detections</span>
-        <span class="stat-value">{{ records|length }}</span>
+        <span class="stat-label">Attendance Rate</span>
+        <span class="stat-value">{{ attendance_rate }}%</span>
     </div>
     <div class="glass-card stat-card">
         <span class="stat-label">System Status</span>
@@ -24,19 +24,85 @@
     </div>
 </div>
 
-<h2 style="margin-top: 2rem; margin-bottom: 1rem; font-size: 1.25rem;">Recent Detections</h2>
+<!-- Row 2: Chart + Activity -->
+<div class="dashboard-grid" style="margin-top: 1.5rem;">
+    <div class="glass-card" style="flex: 2;">
+        <h2 class="section-title">
+            <i class="ph ph-chart-bar" style="color: var(--accent-primary);"></i>
+            Weekly Attendance Trend
+        </h2>
+        <div style="position: relative; height: 220px;">
+            <canvas id="weeklyChart"></canvas>
+        </div>
+    </div>
+    <div class="glass-card" style="flex: 1;">
+        <h2 class="section-title">
+            <i class="ph ph-clock-countdown" style="color: var(--warning);"></i>
+            Recent Activity
+        </h2>
+        {% if recent_activity %}
+        <div class="activity-feed">
+            {% for a in recent_activity %}
+            <div class="activity-item">
+                <div class="activity-dot {% if a.confidence and a.confidence >= 0.45 %}dot-success{% else %}dot-warning{% endif %}"></div>
+                <div class="activity-info">
+                    <span class="activity-name">{{ a.name }}</span>
+                    <span class="activity-time">{{ a.timestamp.strftime('%H:%M') }} · {{ a.student_id }}</span>
+                </div>
+                {% if a.confidence %}
+                <span class="activity-conf" style="color: {% if a.confidence >= 0.45 %}var(--success){% else %}var(--warning){% endif %};">
+                    {{ "%.0f"|format(a.confidence * 100) }}%
+                </span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="text-align: center; color: var(--text-muted); padding: 2rem;">
+            <i class="ph ph-clock" style="font-size: 2rem; display: block; margin-bottom: 0.5rem; opacity: 0.4;"></i>
+            <p>No activity yet</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Row 3: Monthly Heatmap -->
+<div class="glass-card" style="margin-top: 1.5rem;">
+    <h2 class="section-title">
+        <i class="ph ph-calendar-dots" style="color: var(--success);"></i>
+        Monthly Attendance Heatmap
+    </h2>
+    <div class="heatmap-grid">
+        {% for day in heatmap %}
+        <div class="heatmap-cell {% if day.count == 0 %}heat-0{% elif day.count <= 2 %}heat-1{% elif day.count <= 5 %}heat-2{% elif day.count <= 10 %}heat-3{% else %}heat-4{% endif %}"
+             title="{{ day.date }}: {{ day.count }} student(s)">
+            <span class="heatmap-day">{{ day.day }}</span>
+            <span class="heatmap-count">{{ day.count }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="heatmap-legend">
+        <span style="color: var(--text-muted); font-size: 0.75rem;">Less</span>
+        <div class="heatmap-cell heat-0" style="width: 16px; height: 16px;"></div>
+        <div class="heatmap-cell heat-1" style="width: 16px; height: 16px;"></div>
+        <div class="heatmap-cell heat-2" style="width: 16px; height: 16px;"></div>
+        <div class="heatmap-cell heat-3" style="width: 16px; height: 16px;"></div>
+        <div class="heatmap-cell heat-4" style="width: 16px; height: 16px;"></div>
+        <span style="color: var(--text-muted); font-size: 0.75rem;">More</span>
+    </div>
+</div>
+
+<!-- Row 4: Today's Detections -->
+<h2 style="margin-top: 2rem; margin-bottom: 1rem;" class="section-title">
+    <i class="ph ph-list-checks"></i>
+    Today's Detections
+    <span style="font-size: 0.875rem; color: var(--text-muted); font-weight: 400; margin-left: 0.5rem;">({{ total_records }} total)</span>
+</h2>
 
 {% if records %}
 <div class="table-container">
     <table id="attendanceTable">
-        <thead>
-            <tr>
-                <th>Time</th>
-                <th>Student ID</th>
-                <th>Confidence</th>
-                <th>Status</th>
-            </tr>
-        </thead>
+        <thead><tr><th>Time</th><th>Student ID</th><th>Confidence</th><th>Status</th></tr></thead>
         <tbody>
             {% for r in records %}
             <tr>
@@ -52,11 +118,8 @@
                     {% endif %}
                 </td>
                 <td>
-                    {% if r.confidence > 0.45 %}
-                        <span class="badge badge-success">Verified</span>
-                    {% else %}
-                        <span class="badge badge-warning">Review</span>
-                    {% endif %}
+                    {% if r.confidence > 0.45 %}<span class="badge badge-success">Verified</span>
+                    {% else %}<span class="badge badge-warning">Review</span>{% endif %}
                 </td>
             </tr>
             {% endfor %}
@@ -67,8 +130,39 @@
 <div class="glass-card empty-state">
     <i class="ph ph-camera-slash" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.5;"></i>
     <h3>No detections yet</h3>
-    <p>Use the <a href="{{ url_for('demo') }}" style="color: var(--accent-primary);">Live Demo</a> to upload and analyze images.</p>
+    <p>Use the <a href="{{ url_for('testing') }}" style="color: var(--accent-primary);">Testing</a> page to analyze images.</p>
 </div>
 {% endif %}
+{% endblock %}
 
+{% block scripts %}
+<script>
+const weeklyData = {{ weekly | tojson }};
+const ctx = document.getElementById('weeklyChart').getContext('2d');
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: weeklyData.map(d => d.day),
+        datasets: [{
+            label: 'Students Present',
+            data: weeklyData.map(d => d.count),
+            backgroundColor: weeklyData.map((d, i) =>
+                i === weeklyData.length - 1 ? 'rgba(99, 102, 241, 0.8)' : 'rgba(99, 102, 241, 0.3)'
+            ),
+            borderColor: 'rgba(99, 102, 241, 1)', borderWidth: 1,
+            borderRadius: 6, borderSkipped: false,
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false },
+            tooltip: { backgroundColor: 'rgba(15,23,42,0.9)', cornerRadius: 8, padding: 12 }
+        },
+        scales: {
+            y: { beginAtZero: true, ticks: { color: '#64748b', stepSize: 1 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+            x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
+        }
+    }
+});
+</script>
 {% endblock %}
