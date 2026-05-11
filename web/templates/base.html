@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Face Attendance System{% endblock %} | Admin</title>
+    <title>{% block title %}Attendance System{% endblock %} | Admin</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -13,8 +13,8 @@
     <!-- Sidebar Navigation -->
     <aside class="sidebar">
         <div class="sidebar-header">
-            <h2>Face Guard AI</h2>
-            <span class="sidebar-subtitle">Attendance System</span>
+            <h2>Attendance System</h2>
+            <span class="sidebar-subtitle">Face Recognition Based</span>
         </div>
         <nav class="sidebar-nav">
             <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">

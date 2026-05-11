@@ -33,7 +33,7 @@ def main():
 
     print()
     print("  ╔══════════════════════════════════════════════════╗")
-    print("  ║   Face Guard AI — Attendance System Demo         ║")
+    print("  ║   Attendance System Demo                        ║")
     print("  ╠══════════════════════════════════════════════════╣")
     print("  ║  Model:     InsightFace buffalo_l (ResNet-50)    ║")
     print("  ║  Detector:  RetinaFace (det_10g)                 ║")

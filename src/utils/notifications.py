@@ -68,10 +68,10 @@ def send_low_attendance_alert(student_name: str, percentage: float) -> bool:
         <p><strong>{student_name}</strong> has an attendance rate of
            <strong style="color: #ef4444;">{percentage}%</strong></p>
         <p>Please follow up with the student or review their records in the
-           Face Guard AI dashboard.</p>
+           Attendance System dashboard.</p>
         <hr>
         <p style="color: #888; font-size: 12px;">
-            This is an automated alert from Face Guard AI Attendance System.
+            This is an automated alert from Attendance System.
         </p>
     </div>
     """
@@ -105,7 +105,7 @@ def send_daily_summary(present_count: int, total_enrolled: int, date_str: str = 
             </tr>
         </table>
         <hr>
-        <p style="color: #888; font-size: 12px;">Face Guard AI Attendance System</p>
+        <p style="color: #888; font-size: 12px;">Attendance System</p>
     </div>
     """
     return _send_email(subject, body)
@@ -122,10 +122,10 @@ def send_review_needed(pending_count: int) -> bool:
         <h2>Review Queue Alert</h2>
         <p>There are <strong>{pending_count}</strong> low-confidence face detections
            waiting for manual review.</p>
-        <p>Please visit the <strong>Review Queue</strong> in the Face Guard AI dashboard
+        <p>Please visit the <strong>Review Queue</strong> in the Attendance System dashboard
            to verify or reject these detections.</p>
         <hr>
-        <p style="color: #888; font-size: 12px;">Face Guard AI Attendance System</p>
+        <p style="color: #888; font-size: 12px;">Attendance System</p>
     </div>
     """
     return _send_email(subject, body)

@@ -1,7 +1,7 @@
 """
 web/app.py
 ───────────
-Flask web application — all routes for the Face Guard AI Attendance System.
+Flask web application — all routes for the Attendance System.
 
 Routes (grouped by feature):
 ────────────────────────────
@@ -694,14 +694,14 @@ if __name__ == "__main__":
     # Ensure project root is importable
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-    parser = argparse.ArgumentParser(description="Face Guard AI — Attendance System")
+    parser = argparse.ArgumentParser(description="Face Recognition Based Attendance System")
     parser.add_argument("--port", type=int, default=5000, help="Web server port (default: 5000)")
     parser.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)")
     args = parser.parse_args()
 
     print()
     print("  ╔══════════════════════════════════════════════════╗")
-    print("  ║   Face Guard AI — Attendance System              ║")
+    print("  ║   Attendance System                              ║")
     print("  ╠══════════════════════════════════════════════════╣")
     print("  ║  Model:     InsightFace buffalo_l (ResNet-50)    ║")
     print("  ║  Detector:  RetinaFace (det_10g)                 ║")
