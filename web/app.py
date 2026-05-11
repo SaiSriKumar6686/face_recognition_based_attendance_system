@@ -112,11 +112,14 @@ def create_app() -> Flask:
 
     # ── Session cookie settings for reverse-proxy environments (HF Spaces) ──
     app.config['SESSION_COOKIE_HTTPONLY'] = True
-    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-    # If running behind HTTPS proxy (Hugging Face, Render, Railway, etc.)
+    # HF Spaces embeds the app in a cross-origin iframe (huggingface.co → hf.space).
+    # SameSite=Lax blocks cookies in cross-origin iframes, so we must use None.
     if os.environ.get('SPACE_ID') or os.environ.get('FORCE_HTTPS'):
-        app.config['SESSION_COOKIE_SECURE'] = True
+        app.config['SESSION_COOKIE_SAMESITE'] = 'None'   # Required for cross-origin iframe
+        app.config['SESSION_COOKIE_SECURE'] = True        # SameSite=None requires Secure
         app.config['PREFERRED_URL_SCHEME'] = 'https'
+    else:
+        app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'     # Local dev — standard setting
 
     # ── Reverse-proxy support (trust X-Forwarded-* headers) ──────────────
     from werkzeug.middleware.proxy_fix import ProxyFix
