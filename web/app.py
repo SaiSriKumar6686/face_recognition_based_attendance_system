@@ -110,6 +110,18 @@ def create_app() -> Flask:
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'faceguard-ai-secret-key-change-in-production')
 
+    # ── Session cookie settings for reverse-proxy environments (HF Spaces) ──
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    # If running behind HTTPS proxy (Hugging Face, Render, Railway, etc.)
+    if os.environ.get('SPACE_ID') or os.environ.get('FORCE_HTTPS'):
+        app.config['SESSION_COOKIE_SECURE'] = True
+        app.config['PREFERRED_URL_SCHEME'] = 'https'
+
+    # ── Reverse-proxy support (trust X-Forwarded-* headers) ──────────────
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
     init_db()
 
     # ── Flask-Login Setup ─────────────────────────────────────────────
@@ -665,5 +677,60 @@ def create_app() -> Flask:
 
 
 if __name__ == "__main__":
+    """
+    Standalone launcher — run `python web/app.py` to start the full system.
+    Automatically initialises:
+      1. SQLite database (with schema migrations)
+      2. InsightFace buffalo_l recognition model (ResNet-50)
+      3. FAISS IndexFlatIP gallery of enrolled embeddings
+      4. Flask web application on http://localhost:5000
+    """
+    import sys
+    import argparse
+
+    # Ensure project root is importable
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
+    parser = argparse.ArgumentParser(description="Face Guard AI — Attendance System")
+    parser.add_argument("--port", type=int, default=5000, help="Web server port (default: 5000)")
+    parser.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)")
+    args = parser.parse_args()
+
+    print()
+    print("  ╔══════════════════════════════════════════════════╗")
+    print("  ║   Face Guard AI — Attendance System              ║")
+    print("  ╠══════════════════════════════════════════════════╣")
+    print("  ║  Model:     InsightFace buffalo_l (ResNet-50)    ║")
+    print("  ║  Detector:  RetinaFace (det_10g)                 ║")
+    print("  ║  Matching:  FAISS IndexFlatIP (cosine)           ║")
+    print("  ║  Pipeline:  CLAHE → Denoise → Embed → Match     ║")
+    print("  ║  Anti-Spoof: LBP + FFT + Color + Moiré          ║")
+    print("  ╚══════════════════════════════════════════════════╝")
+    print()
+
+    # 1. Database
+    log.info("Initialising database (with schema migrations)...")
+    init_db()
+
+    # 2. Recognition Model
+    log.info("Loading recognition model (this may take a few seconds)...")
+    from src.inference.embedder import get_embedder
+    embedder = get_embedder()
+    log.info(f"Embedder ready: {type(embedder).__name__}")
+
+    # 3. FAISS Gallery
+    log.info("Loading FAISS index...")
+    from src.inference.matcher import get_matcher
+    matcher = get_matcher()
+    log.info(f"Gallery: {matcher.index.ntotal} enrolled embeddings")
+
+    print()
+    print(f"  ✓ System ready!")
+    print(f"  ✓ Open your browser at: http://localhost:{args.port}")
+    print(f"  ✓ Default login: admin / admin123")
+    print(f"  ✓ Press Ctrl+C to stop")
+    print()
+
+    # 4. Start Flask
     app = create_app()
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(host=args.host, port=args.port, debug=False, use_reloader=False)
