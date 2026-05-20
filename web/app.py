@@ -625,7 +625,124 @@ def create_app() -> Flask:
     @login_required
     def live():
         classrooms_list = get_all_classrooms()
-        return render_template("live.html", classrooms=classrooms_list)
+        return render_template("live.html", classrooms=classrooms_list,
+                               liveness_enabled=_LIVENESS_ENABLED)
+
+    @app.route("/api/live/frame", methods=["POST"])
+    @login_required
+    def api_live_frame():
+        """
+        Accept a webcam frame as base64 JPEG, run the full
+        detection → embedding → matching → anti-spoof pipeline,
+        and return JSON with results + bounding boxes.
+        """
+        data = request.get_json(silent=True)
+        if not data or "frame" not in data:
+            return jsonify({"error": "No frame data"}), 400
+
+        # Decode base64 → OpenCV BGR frame
+        frame_b64 = data["frame"]
+        # Strip optional data-URI prefix
+        if "," in frame_b64:
+            frame_b64 = frame_b64.split(",", 1)[1]
+
+        try:
+            img_bytes = base64.b64decode(frame_b64)
+            nparr = np.frombuffer(img_bytes, np.uint8)
+            frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        except Exception:
+            return jsonify({"error": "Invalid frame data"}), 400
+
+        if frame is None:
+            return jsonify({"error": "Could not decode frame"}), 400
+
+        from src.inference.embedder import get_embedder
+        from src.inference.matcher import get_matcher
+        from src.inference.anti_spoof import check_liveness
+
+        embedder = get_embedder()
+        matcher  = get_matcher()
+
+        t0 = time.perf_counter()
+        results = []
+        attendance_logged = []
+
+        if hasattr(embedder, 'embed_from_frame'):
+            face_results = embedder.embed_from_frame(frame)
+            # Get face metadata (bounding boxes) from InsightFace
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            faces_meta = embedder.app.get(rgb)
+
+            for i, (crop, emb) in enumerate(face_results):
+                pred_id, confidence, decision = matcher.match(emb)
+
+                liveness_score = check_liveness(crop) if _LIVENESS_ENABLED else 1.0
+                liveness_pass = liveness_score >= _LIVENESS_THRESHOLD
+
+                student_name = pred_id or "Unknown"
+                if pred_id:
+                    with get_session() as s:
+                        student = s.query(Student).filter_by(student_id=pred_id).first()
+                        if student:
+                            student_name = student.name
+
+                # Extract bounding box
+                bbox = None
+                if i < len(faces_meta):
+                    box = faces_meta[i].bbox.astype(int).tolist()
+                    bbox = box  # [x1, y1, x2, y2]
+
+                results.append({
+                    "student_id": pred_id or "Unknown",
+                    "name": student_name,
+                    "confidence": round(float(confidence) * 100, 1),
+                    "decision": decision,
+                    "liveness_score": round(liveness_score, 3),
+                    "liveness_pass": liveness_pass,
+                    "bbox": bbox,
+                })
+
+                if decision == "high" and pred_id and liveness_pass:
+                    logged = log_attendance_dedup(pred_id, confidence,
+                                                  liveness_score=liveness_score)
+                    if logged:
+                        attendance_logged.append(pred_id)
+        else:
+            from src.inference.face_detector import detect_faces
+            crops = detect_faces(frame)
+            if crops:
+                embs = embedder.embed_batch(crops)
+                for crop_item, emb in zip(crops, embs):
+                    pred_id, confidence, decision = matcher.match(emb)
+                    liveness_score = check_liveness(crop_item) if _LIVENESS_ENABLED else 1.0
+                    liveness_pass = liveness_score >= _LIVENESS_THRESHOLD
+                    results.append({
+                        "student_id": pred_id or "Unknown",
+                        "name": pred_id or "Unknown",
+                        "confidence": round(float(confidence) * 100, 1),
+                        "decision": decision,
+                        "liveness_score": round(liveness_score, 3),
+                        "liveness_pass": liveness_pass,
+                        "bbox": None,
+                    })
+                    if decision == "high" and pred_id and liveness_pass:
+                        logged = log_attendance_dedup(pred_id, confidence,
+                                                      liveness_score=liveness_score)
+                        if logged:
+                            attendance_logged.append(pred_id)
+
+        dt = time.perf_counter() - t0
+        log_health("live_frame", round(dt * 1000, 1), len(results), success=True)
+
+        return jsonify({
+            "faces_detected": len(results),
+            "processing_time_ms": round(dt * 1000, 1),
+            "results": results,
+            "attendance_logged": attendance_logged,
+            "liveness_enabled": _LIVENESS_ENABLED,
+            "frame_width": frame.shape[1],
+            "frame_height": frame.shape[0],
+        })
 
     # ══════════════════════════════════════════════════════════════════
     #  JSON APIs

@@ -6,7 +6,7 @@
     <div class="glass-card" style="display: flex; flex-direction: column;">
         <h2 class="section-title"><i class="ph ph-video-camera" style="color: var(--success);"></i> Camera Feed</h2>
 
-        <div id="feedContainer" style="flex: 1; display: flex; align-items: center; justify-content: center; min-height: 400px; background: rgba(0,0,0,0.3); border-radius: var(--radius-sm); margin-top: 1rem; position: relative;">
+        <div id="feedContainer" style="flex: 1; display: flex; align-items: center; justify-content: center; min-height: 400px; background: rgba(0,0,0,0.3); border-radius: var(--radius-sm); margin-top: 1rem; position: relative; overflow: hidden;">
             <div id="feedPlaceholder" style="text-align: center; color: var(--text-muted);">
                 <i class="ph ph-video-camera" style="font-size: 4rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
                 <p>Select a camera source and click Start</p>
@@ -16,7 +16,21 @@
                 </p>
             </div>
             <video id="liveVideo" style="display: none; width: 100%; border-radius: var(--radius-sm);" autoplay muted playsinline></video>
-            <canvas id="overlayCanvas" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
+            <canvas id="overlayCanvas" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
+            <!-- Hidden canvas used only for capturing frames to send to server -->
+            <canvas id="captureCanvas" style="display: none;"></canvas>
+        </div>
+
+        <!-- Status bar -->
+        <div id="statusBar" style="display: none; margin-top: 0.75rem; padding: 0.5rem 0.75rem; background: rgba(0,0,0,0.2); border-radius: var(--radius-sm); font-size: 0.8rem; display: flex; align-items: center; gap: 0.75rem;">
+            <span id="statusIndicator" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+                <span id="statusDot" style="width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted);"></span>
+                <span id="statusText" style="color: var(--text-muted);">Idle</span>
+            </span>
+            <span style="color: var(--border-light);">|</span>
+            <span style="color: var(--text-muted);">Latency: <strong id="latencyValue" style="color: var(--text-secondary);">—</strong></span>
+            <span style="color: var(--border-light);">|</span>
+            <span style="color: var(--text-muted);">Faces: <strong id="faceCountValue" style="color: var(--text-secondary);">0</strong></span>
         </div>
 
         <div style="display: flex; gap: 1rem; margin-top: 1rem; align-items: center;">
@@ -39,13 +53,25 @@
 
     <div class="glass-card" style="display: flex; flex-direction: column;">
         <h2 class="section-title"><i class="ph ph-list-checks" style="color: var(--warning);"></i> Live Detections</h2>
-        <div id="liveDetections" style="flex: 1; overflow-y: auto; margin-top: 1rem;">
-            <div style="text-align: center; color: var(--text-muted); padding: 2rem;">
+
+        <!-- Attendance logged banner -->
+        <div id="attendanceBanner" style="display: none; padding: 0.6rem 0.75rem; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); border-radius: var(--radius-sm); margin-top: 0.75rem; font-size: 0.8rem; color: var(--success);">
+            <i class="ph ph-check-circle" style="margin-right: 0.25rem;"></i>
+            <span id="attendanceBannerText">Attendance logged</span>
+        </div>
+
+        <div id="liveDetections" style="flex: 1; overflow-y: auto; margin-top: 1rem; max-height: 50vh;">
+            <div id="detectionsPlaceholder" style="text-align: center; color: var(--text-muted); padding: 2rem;">
                 <i class="ph ph-clock" style="font-size: 2rem; display: block; margin-bottom: 0.5rem; opacity: 0.4;"></i>
                 <p>Detections will appear here in real-time</p>
             </div>
         </div>
-        <div id="liveStats" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-light);">
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
+            <button class="btn" onclick="clearDetections()" style="flex: 1; padding: 0.4rem; font-size: 0.75rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border-light);">
+                <i class="ph ph-trash" style="margin-right: 0.25rem;"></i> Clear
+            </button>
+        </div>
+        <div id="liveStats" style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-light);">
             <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
                 <span style="color: var(--text-muted);">Identified:</span>
                 <span id="identifiedCount" style="color: var(--success); font-weight: 600;">0</span>
@@ -54,6 +80,10 @@
                 <span style="color: var(--text-muted);">Unknown:</span>
                 <span id="unknownCount" style="color: var(--danger); font-weight: 600;">0</span>
             </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-top: 0.25rem;">
+                <span style="color: var(--text-muted);">Frames processed:</span>
+                <span id="framesCount" style="color: var(--text-secondary); font-weight: 600;">0</span>
+            </div>
         </div>
     </div>
 </div>
@@ -61,8 +91,18 @@
 
 {% block scripts %}
 <script>
+/* ── State ─────────────────────────────────────────────────────── */
 let stream = null;
 let isRunning = false;
+let captureTimer = null;
+let isProcessing = false;     // throttle guard — skip if previous request in-flight
+let identifiedTotal = 0;
+let unknownTotal = 0;
+let framesTotal = 0;
+const CAPTURE_INTERVAL_MS = 1500;  // ~1.5 seconds between captures
+const livenessEnabled = {{ 'true' if liveness_enabled else 'false' }};
+
+/* ── Start / Stop ──────────────────────────────────────────────── */
 
 async function startFeed() {
     const source = document.getElementById('cameraSelect').value;
@@ -79,9 +119,22 @@ async function startFeed() {
 
         placeholder.style.display = 'none';
         video.style.display = 'block';
+        document.getElementById('overlayCanvas').style.display = 'block';
         document.getElementById('startBtn').style.display = 'none';
         document.getElementById('stopBtn').style.display = 'inline-flex';
+        document.getElementById('statusBar').style.display = 'flex';
+        setStatus('active', 'Running');
         isRunning = true;
+
+        // Wait for video to be ready, then start capture loop
+        video.addEventListener('loadeddata', () => {
+            startCaptureLoop();
+        }, { once: true });
+
+        // In case loadeddata already fired
+        if (video.readyState >= 2) {
+            startCaptureLoop();
+        }
 
     } catch (err) {
         alert('Camera access failed: ' + err.message);
@@ -92,6 +145,13 @@ function stopFeed() {
     const video = document.getElementById('liveVideo');
     const placeholder = document.getElementById('feedPlaceholder');
 
+    isRunning = false;
+
+    if (captureTimer) {
+        clearInterval(captureTimer);
+        captureTimer = null;
+    }
+
     if (stream) {
         stream.getTracks().forEach(t => t.stop());
         stream = null;
@@ -99,10 +159,283 @@ function stopFeed() {
 
     video.style.display = 'none';
     video.srcObject = null;
+    document.getElementById('overlayCanvas').style.display = 'none';
     placeholder.style.display = 'block';
     document.getElementById('startBtn').style.display = 'inline-flex';
     document.getElementById('stopBtn').style.display = 'none';
-    isRunning = false;
+    setStatus('idle', 'Stopped');
+    clearOverlay();
+}
+
+/* ── Frame Capture Loop ────────────────────────────────────────── */
+
+function startCaptureLoop() {
+    if (captureTimer) clearInterval(captureTimer);
+    captureTimer = setInterval(() => {
+        if (isRunning && !isProcessing) {
+            captureAndAnalyze();
+        }
+    }, CAPTURE_INTERVAL_MS);
+    // Also fire immediately on start
+    captureAndAnalyze();
+}
+
+async function captureAndAnalyze() {
+    if (isProcessing) return;  // throttle: skip if still processing previous frame
+    isProcessing = true;
+    setStatus('processing', 'Analyzing…');
+
+    const video = document.getElementById('liveVideo');
+    const captureCanvas = document.getElementById('captureCanvas');
+    const ctx = captureCanvas.getContext('2d');
+
+    // Match canvas to actual video resolution
+    captureCanvas.width = video.videoWidth || 640;
+    captureCanvas.height = video.videoHeight || 480;
+
+    // Draw the current video frame onto the hidden canvas
+    ctx.drawImage(video, 0, 0, captureCanvas.width, captureCanvas.height);
+
+    // Export as JPEG base64
+    const frameDataUrl = captureCanvas.toDataURL('image/jpeg', 0.80);
+
+    try {
+        const resp = await fetch('/api/live/frame', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ frame: frameDataUrl }),
+        });
+
+        if (!resp.ok) {
+            const errData = await resp.json().catch(() => ({}));
+            console.warn('Live frame error:', errData.error || resp.statusText);
+            setStatus('error', 'Error');
+            isProcessing = false;
+            return;
+        }
+
+        const data = await resp.json();
+        framesTotal++;
+        document.getElementById('framesCount').textContent = framesTotal;
+        document.getElementById('latencyValue').textContent = data.processing_time_ms + 'ms';
+        document.getElementById('faceCountValue').textContent = data.faces_detected;
+
+        // Draw overlays
+        drawOverlay(data);
+
+        // Update detections sidebar
+        updateDetections(data);
+
+        // Show attendance banner if any logged
+        if (data.attendance_logged && data.attendance_logged.length > 0) {
+            showAttendanceBanner(data.attendance_logged);
+        }
+
+        setStatus('active', 'Running');
+    } catch (err) {
+        console.error('Frame analysis failed:', err);
+        setStatus('error', 'Connection error');
+    }
+
+    isProcessing = false;
+}
+
+/* ── Overlay Drawing ───────────────────────────────────────────── */
+
+function drawOverlay(data) {
+    const video = document.getElementById('liveVideo');
+    const canvas = document.getElementById('overlayCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Match canvas resolution to video displayed size
+    const rect = video.getBoundingClientRect();
+    canvas.width = rect.width * (window.devicePixelRatio || 1);
+    canvas.height = rect.height * (window.devicePixelRatio || 1);
+    ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+
+    ctx.clearRect(0, 0, rect.width, rect.height);
+
+    if (!data.results || data.results.length === 0) return;
+
+    // Compute scale factors: server frame size → displayed video size
+    const fw = data.frame_width || video.videoWidth || 640;
+    const fh = data.frame_height || video.videoHeight || 480;
+    const scaleX = rect.width / fw;
+    const scaleY = rect.height / fh;
+
+    data.results.forEach(r => {
+        if (!r.bbox) return;
+
+        const [x1, y1, x2, y2] = r.bbox;
+        const dx = x1 * scaleX;
+        const dy = y1 * scaleY;
+        const dw = (x2 - x1) * scaleX;
+        const dh = (y2 - y1) * scaleY;
+
+        // Pick colour based on decision + liveness
+        let color;
+        if (r.decision === 'high' && r.liveness_pass) {
+            color = '#10b981';  // green — recognized + live
+        } else if (r.decision === 'high' && !r.liveness_pass) {
+            color = '#ef4444';  // red — recognized but spoof suspected
+        } else if (r.decision === 'soft') {
+            color = '#f59e0b';  // amber — low confidence match
+        } else {
+            color = '#ef4444';  // red — unknown
+        }
+
+        // Bounding box
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(dx, dy, dw, dh);
+
+        // Label background
+        let label = r.name || r.student_id || '?';
+        label += ` (${r.confidence}%)`;
+        if (!r.liveness_pass && livenessEnabled) label += ' SPOOF?';
+
+        ctx.font = 'bold 13px Inter, system-ui, sans-serif';
+        const tm = ctx.measureText(label);
+        const labelH = 20;
+        const labelW = tm.width + 10;
+        const labelX = dx;
+        const labelY = dy - labelH - 2;
+
+        ctx.fillStyle = color;
+        ctx.globalAlpha = 0.85;
+        ctx.fillRect(labelX, labelY < 0 ? dy : labelY, labelW, labelH);
+        ctx.globalAlpha = 1.0;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(label, labelX + 5, (labelY < 0 ? dy : labelY) + 14);
+    });
+}
+
+function clearOverlay() {
+    const canvas = document.getElementById('overlayCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+/* ── Detections Sidebar ────────────────────────────────────────── */
+
+function updateDetections(data) {
+    const container = document.getElementById('liveDetections');
+    const placeholder = document.getElementById('detectionsPlaceholder');
+
+    if (!data.results || data.results.length === 0) return;
+
+    // Remove placeholder on first detection
+    if (placeholder) placeholder.remove();
+
+    const now = new Date().toLocaleTimeString();
+
+    data.results.forEach(r => {
+        // Update counters
+        if (r.decision === 'high' || r.decision === 'soft') {
+            identifiedTotal++;
+        } else {
+            unknownTotal++;
+        }
+
+        const confColor = r.confidence >= 45 ? 'var(--success)' : r.confidence >= 20 ? 'var(--warning)' : 'var(--danger)';
+        const decisionClass = r.decision === 'high' ? 'badge-success' : r.decision === 'soft' ? 'badge-warning' : 'badge-danger';
+
+        let livenessHtml = '';
+        if (livenessEnabled) {
+            const livColor = r.liveness_pass ? 'var(--success)' : 'var(--danger)';
+            const livBg = r.liveness_pass ? '16,185,129' : '239,68,68';
+            livenessHtml = `<span class="badge" style="background: rgba(${livBg},0.15); color: ${livColor}; border: 1px solid ${livColor}40; font-size: 0.7rem;">
+                ${r.liveness_pass ? '✓ Live' : '✕ Spoof?'}
+            </span>`;
+        }
+
+        const card = document.createElement('div');
+        card.style.cssText = 'padding: 0.6rem 0.75rem; border: 1px solid var(--border-light); border-radius: var(--radius-sm); margin-bottom: 0.4rem; animation: fadeSlideIn 0.3s ease-out;';
+        card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="min-width: 0;">
+                    <span style="font-weight: 600; font-size: 0.9rem;">${r.name}</span>
+                    <span style="color: var(--text-muted); font-size: 0.7rem; margin-left: 0.35rem;">${r.student_id !== r.name ? r.student_id : ''}</span>
+                </div>
+                <span style="color: ${confColor}; font-weight: 700; font-size: 0.85rem; white-space: nowrap;">${r.confidence}%</span>
+            </div>
+            <div style="display: flex; gap: 0.35rem; margin-top: 0.3rem; align-items: center; flex-wrap: wrap;">
+                <span class="badge ${decisionClass}" style="font-size: 0.7rem;">${r.decision}</span>
+                ${livenessHtml}
+                <span style="color: var(--text-muted); font-size: 0.65rem; margin-left: auto;">${now}</span>
+            </div>
+        `;
+
+        // Prepend (newest first)
+        container.insertBefore(card, container.firstChild);
+
+        // Limit to 50 entries to avoid DOM bloat
+        while (container.children.length > 50) {
+            container.removeChild(container.lastChild);
+        }
+    });
+
+    document.getElementById('identifiedCount').textContent = identifiedTotal;
+    document.getElementById('unknownCount').textContent = unknownTotal;
+}
+
+function clearDetections() {
+    const container = document.getElementById('liveDetections');
+    container.innerHTML = `<div id="detectionsPlaceholder" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+        <i class="ph ph-clock" style="font-size: 2rem; display: block; margin-bottom: 0.5rem; opacity: 0.4;"></i>
+        <p>Detections will appear here in real-time</p>
+    </div>`;
+    identifiedTotal = 0;
+    unknownTotal = 0;
+    framesTotal = 0;
+    document.getElementById('identifiedCount').textContent = '0';
+    document.getElementById('unknownCount').textContent = '0';
+    document.getElementById('framesCount').textContent = '0';
+}
+
+/* ── Attendance Banner ─────────────────────────────────────────── */
+
+function showAttendanceBanner(ids) {
+    const banner = document.getElementById('attendanceBanner');
+    document.getElementById('attendanceBannerText').textContent =
+        'Attendance logged: ' + ids.join(', ');
+    banner.style.display = 'block';
+    // Auto-hide after 5 seconds
+    setTimeout(() => { banner.style.display = 'none'; }, 5000);
+}
+
+/* ── Status Indicator ──────────────────────────────────────────── */
+
+function setStatus(state, text) {
+    const dot = document.getElementById('statusDot');
+    const label = document.getElementById('statusText');
+    label.textContent = text;
+
+    const colors = {
+        idle: 'var(--text-muted)',
+        active: '#10b981',
+        processing: '#f59e0b',
+        error: '#ef4444',
+    };
+    dot.style.background = colors[state] || colors.idle;
+
+    if (state === 'processing') {
+        dot.style.animation = 'pulse 1s ease-in-out infinite';
+    } else {
+        dot.style.animation = 'none';
+    }
 }
 </script>
+
+<style>
+@keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.4; }
+}
+</style>
 {% endblock %}
