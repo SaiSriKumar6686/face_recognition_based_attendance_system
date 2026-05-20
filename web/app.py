@@ -617,6 +617,39 @@ def create_app() -> Flask:
         logs = get_audit_logs(limit=200)
         return render_template("audit_log.html", logs=logs)
 
+    @app.route("/api/run-evaluation")
+    @login_required
+    def api_run_evaluation():
+        """
+        Run the biometric evaluation script (d-prime, genuine/imposter
+        distributions, scaling projections) and return captured output.
+        """
+        import io
+        import sys as _sys
+        import traceback
+
+        # Capture stdout from the evaluation script
+        old_stdout = _sys.stdout
+        captured = io.StringIO()
+        _sys.stdout = captured
+
+        try:
+            from testing.evaluate_metrics import run_analysis
+            run_analysis()
+            output = captured.getvalue()
+            success = True
+        except Exception as e:
+            output = captured.getvalue()
+            output += f"\n\n--- ERROR ---\n{traceback.format_exc()}"
+            success = False
+        finally:
+            _sys.stdout = old_stdout
+
+        log_audit(current_user.username, "RUN_EVALUATION",
+                  details=f"success={success}")
+
+        return jsonify({"output": output, "success": success})
+
     # ══════════════════════════════════════════════════════════════════
     #  LIVE FEED
     # ══════════════════════════════════════════════════════════════════
